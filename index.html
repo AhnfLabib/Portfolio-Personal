@@ -26,14 +26,21 @@
                 <img src="AL logo.png" alt="AL Logo" class="nav-logo">
                 <a href="#home">Ahnaf Labib</a>
             </div>
-            <ul class="nav-links">
-                <li><a href="#about">About</a></li>
-                <li><a href="#education">Education</a></li>
-                <li><a href="#experience">Experience</a></li>
-                <li><a href="#leadership">Leadership</a></li>
-                <li><a href="#projects">Projects</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
+            <button class="menu-toggle" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu">
+                <ul class="nav-links">
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#education">Education</a></li>
+                    <li><a href="#experience">Experience</a></li>
+                    <li><a href="#leadership">Leadership</a></li>
+                    <li><a href="#projects">Projects</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </div>
         </div>
     </nav>
 
@@ -99,15 +106,31 @@
             <div class="timeline-item">
                 <div class="timeline-content">
                     <div class="timeline-header">
+                        <img src="idtech-logo.png" alt="id Tech Logo" class="company-logo">
+                        <div class="header-text">
+                            <h3>Software Development Instructor</h3>
+                            <div class="company">iD Tech</div>
+                            <span class="duration">Feb 2025 - Present</span>
+                        </div>
+                    </div>
+                    <p class="description">
+                        Taught 1:1 lessons to over 11 students globally, focusing on Python, AI, ML, and Java with hands-on TensorFlow training. I take pride in designing engaging coding projects that have achieved a 96% student satisfaction rate and led to measurable proficiency improvements. One of my most rewarding experiences has been guiding students in building AI chatbots with OpenAI APIs, helping them reduce debugging time by 34% through enhanced technical skills.
+                    </p>
+                </div>
+            </div>
+
+            <div class="timeline-item">
+                <div class="timeline-content">
+                    <div class="timeline-header">
                         <img src="CDI.png" alt="CDI Logo" class="company-logo">
                         <div class="header-text">
-                            <h3>UI/UX & Media Intern</h3>
+                            <h3>Software Engineering Intern</h3>
                             <div class="company">Center for Diversity & Inclusion</div>
                             <span class="duration">May 2024 - Present</span>
                         </div>
                     </div>
                     <p class="description">
-                        As the UI/UX & Media Intern at CDI, I'm spearheading efforts to modernize our digital presence. I've had the opportunity to create inclusive designs and implement accessibility features that have made our platform more welcoming for everyone. One of my proudest achievements has been building a comprehensive database that's made our resources more accessible to students from diverse backgrounds.
+                        Developed a structured student profile database in Firebase containing 448 entries from 31 regions, significantly improving resource allocation. I've also implemented 22+ responsive media queries that ensure seamless cross-device compatibility, resulting in a 47% boost in user engagement. One of my key contributions has been building an AI chatbot using Langchain for our website, which has enhanced accessibility and led to a 35% increase in user interactions across our platform.
                     </p>
                 </div>
             </div>
@@ -117,7 +140,7 @@
                     <div class="timeline-header">
                         <img src="HDSTRT.png" alt="Headstarter Logo" class="company-logo">
                         <div class="header-text">
-                            <h3>SDE Fellow</h3>
+                            <h3>Software Development Fellow</h3>
                             <div class="company">Headstarter</div>
                             <span class="duration">Jul 2024 - Sep 2024</span>
                         </div>
@@ -133,13 +156,13 @@
                     <div class="timeline-header">
                         <img src="TNZR.png" alt="Tenzer Logo" class="company-logo">
                         <div class="header-text">
-                            <h3>Web & Security Researcher</h3>
+                            <h3>Software Development Intern</h3>
                             <div class="company">Tenzer Technology Center</div>
                             <span class="duration">Aug 2023 - May 2024</span>
                         </div>
                     </div>
                     <p class="description">
-                        At Tenzer, I immersed myself in Machine Learning research while facilitating team discussions that brought together different perspectives. I found it incredibly rewarding to explore how diverse viewpoints could enhance our research methodologies. This role taught me the importance of collaborative problem-solving in advancing technological solutions.
+                        Designed 9 innovative software solutions that enhanced accessibility and automation for over 1,320 users through intuitive tools. I also led more than 12 productive team discussions that helped align our goals, integrate diverse ideas, and enhance collaboration across departments. This experience taught me the value of efficient problem-solving and how to effectively translate technical concepts into practical solutions that address real user needs.
                     </p>
                 </div>
             </div>
@@ -155,17 +178,17 @@
                 <div class="company">Delta Upsilon (DePauw Chapter)</div>
                 <span class="duration">Aug 2024 - Present</span>
                 <p class="description">
-                    Revamped our chapter's social media strategy with engaging, inclusive content that boosted engagement by 264% and expanded our audience reach by 218%. Focused on creating content that strengthens community connections and showcases our chapter's values.
+                    Strategized a new plan for content creation with a $400 budget to create impactful posts, resulting in a 64% growth in engagement. I also revamped our chapter website using ReactJS, updating member information and improving performance, which boosted user activity by 57% and strengthened our community connections.
                 </p>
             </div>
 
             <div class="timeline-item">
                 <img src="GDSC.svg" alt="GDSC Logo" class="org-logo">
-                <h3>Lead</h3>
+                <h3>Tech Lead</h3>
                 <div class="company">Google Developer's Student Club</div>
                 <span class="duration">Aug 2023 - May 2023</span>
                 <p class="description">
-                    Led technical workshops on version control and TensorFlow, mentoring 4 teams through the GDSC Solution Challenge 2024. Created an inclusive learning environment that encouraged collaboration and skill development across diverse student groups.
+                    As Tech Lead at Google Developer's Student Club, I spearheaded version control and TensorFlow workshops, organizing 8 study jams that reached 44 students while managing a $2200 budget. I mentored 4 teams through the GDSC Solution Challenge 2024, providing guidance on development practices and fostering collaborative problem-solving among diverse student groups.
                 </p>
             </div>
 
@@ -405,6 +428,8 @@
             <p class="copyright">&copy; 2024 Ahnaf Labib. All rights reserved.</p>
         </div>
     </footer>
+
+    <div class="menu-overlay"></div>
 
     <script src="script.js"></script>
 </body>
