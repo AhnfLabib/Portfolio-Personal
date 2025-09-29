@@ -719,7 +719,7 @@ body, .section {
 .blur-circle:nth-child(1) {
     width: 500px;
     height: 500px;
-    background: #0984e3;
+    background: #11025a;
     top: -100px;
     right: -100px;
     animation-delay: 0s;
@@ -728,7 +728,7 @@ body, .section {
 .blur-circle:nth-child(2) {
     width: 400px;
     height: 400px;
-    background: #00cec9;
+    background: #073816;
     bottom: -150px;
     left: -100px;
     animation-delay: -5s;
@@ -737,7 +737,7 @@ body, .section {
 .blur-circle:nth-child(3) {
     width: 300px;
     height: 300px;
-    background: #6c5ce7;
+    background: #602727;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -1520,6 +1520,7 @@ nav {
     .typed-text {
         font-size: 40px;
     }
+
 }
 
 @media (max-width: 768px) {
@@ -2046,3 +2047,6 @@ nav {
         transform: rotate(-45deg) translate(5px, -5px);
     }
 } 
+
+
+  
