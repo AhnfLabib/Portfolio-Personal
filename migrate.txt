@@ -1,0 +1,237 @@
+### Markdown prompt for rebuilding the site with Next.js, Tailwind, shadcn/ui
+
+Build me a modern, accessible, and responsive personal website using Next.js (App Router), Tailwind CSS, and shadcn/ui. Preserve all body text content and section structure from my current site. Use clean, componentized architecture with server components by default and client components only where needed.
+
+- Tech stack: Next.js 14+ (App Router), TypeScript, Tailwind CSS, shadcn/ui, eslint/prettier, lucide-react, next-seo.
+- Design: Minimal dark-first theme with tasteful glass/blur overlays and soft glow accents. Smooth scroll, subtle section reveals, and a light background animation are welcome but keep perf high.
+- Accessibility: Keyboard nav, focus states, semantic HTML, aria labels where appropriate.
+- SEO: Metadata, OpenGraph, Twitter cards, sitemap, robots, good headings structure.
+- Performance: Optimize images with `next/image`, prefetch main nav links, avoid heavy client JS.
+
+Project initialization
+- Initialize a Next.js app with TypeScript and Tailwind configured.
+- Install shadcn/ui and configure components directory.
+- Add `next-seo` for SEO configuration and defaults.
+- Set up base theme (dark default) with ability to support light if toggled in the future.
+- Create `public/` assets mapped from my current images:
+  - `AL logo.png` (favicon + navbar logo), `ahnafLabib.png`, `depauw-logo.png`, `idtech-logo.png`, `CDI.png`, `HDSTRT.png`, `TNZR.png`, `du.png`, `GDSC.svg`, `nexevent.png`, `page-friend.png`, `Iot.png`, `simple.png`, `ToDoList.png`, `weatherbuddy.png`.
+- Use `next/font` for fonts similar to Poppins and a serif accent if needed.
+
+Site architecture (App Router)
+- Pages/Routes:
+  - `/` (single-page layout with anchored sections): hero, about, education, experience, leadership, projects, contact, quote, footer.
+- Global layout:
+  - Sticky translucent navbar with logo and anchors: About, Education, Experience, Leadership, Projects, Contact.
+  - Background layer supports a subtle animated gradient or blurred circles, behind content.
+  - Container width ~max-w-[1200px], generous vertical spacing.
+- Components (shadcn mapping where helpful):
+  - `Navbar` (uses shadcn `navigation-menu` or custom): responsive menu button on mobile; active link highlight on scroll.
+  - `Hero` with typed text effect, CTA button to Contact, subtle scroll indicator.
+  - `Section` wrapper with reveal-on-scroll animation (IntersectionObserver) and consistent paddings.
+  - `About` with photo on right (desktop), text on left; stacks on mobile.
+  - `Education` as a media/card layout.
+  - `Experience` as a vertical timeline with company logos and details; left rail line with nodes; card feel for content.
+  - `Leadership` as a responsive grid of cards.
+  - `Projects` as horizontally scrollable cards with overlay GitHub link on hover; left/right scroll buttons on desktop only.
+  - `ContactForm` with shadcn `Input`, `Textarea`, `Button`; submit posts JSON to a Google Apps Script endpoint.
+  - `Quote` centered blockquote with author.
+  - `Footer` including email, LinkedIn, GitHub, Instagram links.
+  - Optional `ThemeToggle` reserved slot (can be disabled by default).
+- Animations:
+  - Section fade/slide in when entering viewport.
+  - Hero title initial motion and typing cursor blink.
+  - Projects card hover lift and overlay reveal.
+  - Keep animations lightweight; prefer CSS and IntersectionObserver.
+
+Content to preserve exactly
+- Hero
+  - Heading: "I'm Ahnaf Labib"
+  - Typed words loop (in order):
+    - "An Undergraduate Student"
+    - "An Aspiring Software Engineer"
+    - "An Aspiring Front-end Designer"
+    - "An iDTech SDE Instructor"
+    - "A Former GDSC Lead"
+    - "A Musician"
+    - "A Designer"
+    - "A Photographer"
+  - CTA: button “Contact Me” -> `#contact`
+  - Scroll indicator that scrolls to `#about`
+
+- About (keep paragraph texts as-is, same emojis, and link)
+  - Hi 😁 I'm Ahnaf (Uh-Nuf) — passionate creator…
+  - Computer Science major at DePauw…
+  - Outside of coding… check out my Instagram link `https://www.instagram.com/itsded_inside/` (open new tab)
+  - Keep highlighted name color and pronunciation color accent.
+
+- Education
+  - University: DePauw University (link `https://www.depauw.edu/`)
+  - Location: Greencastle, Indiana
+  - Degree: Bachelor of Arts in Computer Science
+  - Minor: Minor in Philosophy
+  - Description paragraphs exactly as in current site.
+
+- Work Experience (exact text, order, and durations)
+  1) iD Tech (logo `idtech-logo.png`)
+     - Role: Software Development Instructor
+     - Duration: Feb 2025 - Present
+     - Description: “Taught 1:1 lessons to over 11 students globally…” (preserve entire paragraph)
+  2) Center for Diversity & Inclusion (logo `CDI.png`)
+     - Role: Software Engineering Intern
+     - Duration: May 2024 - Present
+     - Description: “Developed a structured student profile database…” (preserve entire paragraph)
+  3) Headstarter (logo `HDSTRT.png`)
+     - Role: Software Development Fellow
+     - Duration: Jul 2024 - Sep 2024
+     - Description: “During my time at Headstarter…” (preserve entire paragraph)
+  4) Tenzer Technology Center (logo `TNZR.png`)
+     - Role: Software Development Intern
+     - Duration: Aug 2023 - May 2024
+     - Description: “Designed 9 innovative software solutions…” (preserve entire paragraph)
+
+- Leadership (exact text, order, durations)
+  1) Delta Upsilon (logo `du.png`)
+     - Role: Social Media Chair
+     - Duration: Aug 2024 - Present
+     - Description: “Strategized a new plan for content creation…” (preserve)
+  2) Google Developer's Student Club (logo `GDSC.svg`)
+     - Role: Tech Lead
+     - Duration: Aug 2023 - May 2023
+     - Description: “As Tech Lead at Google Developer's Student Club…” (preserve)
+  3) Delta Upsilon (logo `du.png`)
+     - Role: Secretary
+     - Duration: Feb 2023 - Aug 2023
+     - Description: “Managed communications and records…” (preserve)
+  4) The Jane and David Stone Civic Leadership Program (logo `HRTMN.jpeg`)
+     - Role: Lead
+     - Duration: Aug 2022 - May 2023
+     - Description: “Contributed to community service…” (preserve)
+
+- Projects (each as a card; keep names, descriptions, tech tags, and GitHub links)
+  - NexEvent
+    - Image `nexevent.png`
+    - Description: “Event management app built with Vue.js and Vuetify…”
+    - Tech: Vue.js, Firebase, Vuetify
+    - Link: `https://github.com/AhnfLabib/NexEvent`
+  - Page Friend
+    - Image `page-friend.png`
+    - Description: “Modern free open library portal…”
+    - Tech: Vue.js, Pinia, API
+    - Link: `https://github.com/AhnfLabib/Page-Friend`
+  - IoT Anomaly Detection
+    - Image `Iot.png`
+    - Description: “Python-based system achieving 94% accuracy…”
+    - Tech: Python, ML, IoT
+    - Link: `https://github.com/AhnfLabib/Anomaly-Detection-ML`
+  - SimplePlayer
+    - Image `simple.png`
+    - Description: “Minimalist iOS music player…”
+    - Tech: Swift, iOS, AVFoundation
+    - Link: `https://github.com/AhnfLabib/SimplePlayer`
+  - To-Do List Manager
+    - Image `ToDoList.png`
+    - Description: “Task management application featuring search…”
+    - Tech: Java, File I/O, UI Design
+    - Link: `https://github.com/AhnfLabib/To-do-list`
+  - Weather Buddy
+    - Image `weatherbuddy.png`
+    - Description: “Real-time weather application providing forecasts…”
+    - Tech: Node.js, JavaScript, APIs
+    - Link: `https://github.com/AhnfLabib/Weather-Buddy`
+  - “See More Projects” button linking to `https://github.com/AhnfLabib`
+
+- Contact
+  - Form fields: name, email, message (all required)
+  - Submit button text: “Send Message”
+  - On submit: POST JSON to this Google Apps Script URL: `https://script.google.com/macros/s/AKfycbwb-E9rJbvJl6Hod44RMHsqmZHx7Nf2Gi2OlaQvzI_8CAtMH7e7c5BDSO7qgCXc9wHa/exec`
+  - Show success/error toast using shadcn `toast` component.
+  - Validate email format, basic length checks.
+
+- Quote
+  - Text: "We are what we repeatedly do. Excellence, then, is not an act, but a habit."
+  - Author: — Will Durant
+
+- Footer
+  - Social links as items with icon + label:
+    - Email: `mailto:ahnaflabib212@gmail.com`
+    - LinkedIn: `https://www.linkedin.com/in/ahnaflabib2026/`
+    - GitHub: `https://github.com/AhnfLabib`
+    - Instagram: `https://www.instagram.com/itsded_inside/`
+  - Copyright: “© 2024 Ahnaf Labib. All rights reserved.”
+
+UI/UX requirements
+- Typography:
+  - Use `next/font` to load a geometric sans (e.g., Inter or Poppins-like) and optionally a serif accent.
+  - Hero H1 large and bold, highlight “Ahnaf Labib” in a soft yellow accent with glow.
+- Colors:
+  - Dark background (#000–#1A1A1A range), primary text as white/near-white.
+  - Accents: yellow highlight (#FFE87C-ish), secondary blues/purples for interactive states.
+- Components and utility:
+  - Prefer shadcn/ui building blocks for `button`, `input`, `textarea`, `card`, `navigation-menu`, `toaster`.
+  - Use Tailwind for layout, spacing, responsive behavior, and custom utilities.
+- Motion:
+  - Keep transitions subtle (200–300ms), reduce motion for `prefers-reduced-motion`.
+- Responsiveness:
+  - Navbar collapses to a menu button under 768px.
+  - About stacks image under text on mobile and centers.
+  - Projects scroll buttons hidden on mobile; horizontal scroll via swipe/wheel remains.
+
+Implementation details
+- File structure (example):
+  - `app/layout.tsx`, `app/page.tsx`
+  - `components/navbar.tsx`, `components/hero.tsx`, `components/section.tsx`, `components/about.tsx`, `components/education.tsx`, `components/experience.tsx`, `components/leadership.tsx`, `components/projects.tsx`, `components/contact-form.tsx`, `components/quote.tsx`, `components/footer.tsx`, `components/scroll-indicator.tsx`, `components/typed-text.tsx` (client)
+  - `components/ui/*` from shadcn generator
+  - `lib/seo.ts`, `lib/sections.ts` (ids and anchor map), `lib/constants.ts` (typed words array)
+  - `public/*` for all assets
+- Reusable `Section` component:
+  - Accepts `id`, `title`, `children`.
+  - Applies consistent paddings and handles reveal-on-scroll (client).
+- Typed text:
+  - Client component with the provided words array; configurable speeds; blinking cursor.
+- Projects:
+  - Use `next/image`; overlay GitHub button with `Button` variant=outline; keyboard-accessible.
+- Experience timeline:
+  - Semantic list; left line and nodes with CSS; card content with logo, role, company, duration, description.
+- Contact:
+  - Edge function or server action optional; for now POST directly to the given Apps Script URL with `fetch` from client and JSON body.
+- Navbar active state:
+  - IntersectionObserver to set current section; visually indicate active anchor.
+- Smooth scrolling:
+  - Use CSS `scroll-behavior: smooth` and `scroll-margin-top` on sections to account for sticky navbar.
+
+Tailwind and shadcn setup
+- Tailwind config:
+  - Add container center, custom colors for accent yellow and secondary blue/purple, safe area paddings, and animation utilities for fade/slide.
+- shadcn:
+  - Install `button`, `input`, `textarea`, `card`, `navigation-menu`, `sonner` or `toast`.
+
+Accessibility and semantics
+- Proper headings hierarchy: H1 in hero, H2 for section titles.
+- Anchor nav labels with `aria-current="page"` when active.
+- Form labels and `aria-invalid` where necessary.
+- Sufficient contrast for text and focus outlines.
+
+SEO
+- Use `Metadata` API and `next-seo` defaults:
+  - Title: “Ahnaf | Portfolio”
+  - Description summarizing About section
+  - Favicon from `AL logo.png`
+  - OpenGraph image derived from hero photo/name or a generated image
+  - Robots allow indexing
+- Add `/sitemap.xml` and `/robots.txt`.
+
+Acceptance criteria
+- All body text, names, roles, durations, descriptions, links, and quote match the current content exactly.
+- Design feels modern and refined with dark-first styling and subtle motion.
+- Good Lighthouse scores (A11y 95+, Best Practices 95+, SEO 95+, Performance as high as feasible).
+- The navigation works smoothly with active section highlighting, and all external links open in new tabs.
+- Contact form submits JSON to the specified URL and shows success/error toasts.
+
+Deliverables
+- A Next.js project ready to run: `npm i && npm run dev`
+- README with setup instructions and where to place images in `public/`.
+- All images referenced correctly and optimized with `next/image`.
+
+I’m ready to scaffold this in your repo next if you’d like me to generate the app, configure Tailwind/shadcn, and migrate all content.
+
+I extracted your site’s sections and text and produced a drop-in prompt/spec to rebuild it with Next.js + Tailwind + shadcn/ui, preserving all content and behavior.
