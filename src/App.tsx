@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { PersonaProvider, usePersona } from "./persona/PersonaContext";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import IntroLoader from "./components/IntroLoader";
 import DevPortfolio from "./components/dev/DevPortfolio";
 import CreativePortfolio from "./components/creative/CreativePortfolio";
 
@@ -45,6 +46,7 @@ function PortfolioShell() {
 export default function App() {
   return (
     <PersonaProvider>
+      <IntroLoader />
       <PortfolioShell />
     </PersonaProvider>
   );

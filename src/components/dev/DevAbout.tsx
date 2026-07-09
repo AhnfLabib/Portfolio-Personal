@@ -12,7 +12,7 @@ export default function DevAbout() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="group relative mx-auto w-full max-w-xs md:mx-0"
+          className="relative mx-auto w-full max-w-xs md:mx-0"
         >
           <span
             aria-hidden="true"
@@ -22,7 +22,7 @@ export default function DevAbout() {
             src={about.image}
             alt="Ahnaf Labib"
             loading="lazy"
-            className="relative z-10 w-full rounded-xl border border-line object-cover grayscale transition-all duration-500 group-hover:grayscale-0"
+            className="relative z-10 w-full rounded-xl border border-line object-cover"
           />
         </motion.div>
 

@@ -7,10 +7,10 @@ export default function Footer() {
     return (
       <footer className="border-t border-line bg-surface/50">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 font-mono text-xs text-ink-faint sm:px-6">
-          <span className="text-accent">-- INSERT --</span>
+          <span className="text-accent">⎇ main</span>
           <span>ahnaf@portfolio</span>
           <span aria-hidden="true">·</span>
-          <span>built with react + vite</span>
+          <span>built with react + vite + tailwind</span>
           <span aria-hidden="true">·</span>
           <span>© 2026</span>
         </div>
