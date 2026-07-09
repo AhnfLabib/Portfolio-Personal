@@ -46,7 +46,12 @@ export default function CreativeContact() {
 
         {mail && (
           <a
-            href={mail.href}
+            href={`https://mail.google.com/mail/?view=cm&fs=1&to=${mail.href.replace(
+              /^mailto:/,
+              ""
+            )}`}
+            target="_blank"
+            rel="noreferrer"
             className="mt-10 inline-flex items-center gap-3 rounded-full bg-accent px-8 py-4 font-medium text-accent-ink transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg"
           >
             <Mail className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
