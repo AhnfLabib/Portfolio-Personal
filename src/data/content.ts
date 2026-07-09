@@ -1,24 +1,35 @@
-export const nav = [
+export interface NavItem {
+  label: string;
+  href: string;
+}
+
+export const navDev: NavItem[] = [
   { label: "About", href: "#about" },
-  { label: "Education", href: "#education" },
   { label: "Experience", href: "#experience" },
-  { label: "Leadership", href: "#leadership" },
   { label: "Projects", href: "#projects" },
+  { label: "Education", href: "#education" },
+  { label: "Leadership", href: "#leadership" },
   { label: "Contact", href: "#contact" },
-] as const;
+];
+
+export const navCreative: NavItem[] = [
+  { label: "Statement", href: "#statement" },
+  { label: "Crafts", href: "#crafts" },
+  { label: "Gallery", href: "#gallery" },
+  { label: "Contact", href: "#contact" },
+];
 
 export const hero = {
   name: "Ahnaf Labib",
-  roles: [
+  // Dev-facing roles only; the artistic hats live in the creative persona.
+  rolesDev: [
     "An Undergraduate Student",
     "An Aspiring Software Engineer",
     "An Aspiring Front-end Designer",
     "An iDTech SDE Instructor",
     "A Former GDSC Lead",
-    "A Musician",
-    "A Designer",
-    "A Photographer",
   ],
+  tagline: "CS @ DePauw · SWE intern @ Tenzer · building LLM pipelines by day.",
 } as const;
 
 export const about = {
@@ -27,6 +38,16 @@ export const about = {
     "Hi, I'm Ahnaf (Uh-Nuf) — a passionate creator blending technology, design, and innovation to craft meaningful experiences.",
     "As a Computer Science major at DePauw University, I thrive at the intersection of coding and creativity, building intuitive applications and impactful digital content. I've spearheaded social media campaigns, reimagined user interfaces for better engagement, and developed web applications that solve real-world problems. I also enjoy sharing my knowledge, mentoring peers to unlock the exciting potential of STEM.",
     "Outside of coding, I dive into my creative side — capturing moments through photography, jamming on the guitar, or unwinding with challenging action-adventure games like Lies of P and Sekiro. If you're curious about my photography and music, check out my Instagram, where I post regularly. I'd love to connect and hear your thoughts on my work — let's build something awesome together!",
+  ],
+  stack: [
+    "Python",
+    "TypeScript",
+    "React",
+    "Java",
+    "C++",
+    "Supabase",
+    "Firebase",
+    "AWS",
   ],
   instagram: "https://www.instagram.com/itsded_inside/",
 } as const;
@@ -213,3 +234,147 @@ export const socials = [
 ] as const;
 
 export const githubProfile = "https://github.com/AhnfLabib";
+
+/* ------------------------------------------------------------------ *
+ * Creative persona ("The Artist") content.
+ * ------------------------------------------------------------------ */
+
+/** A run of text that can be italicized and/or tinted with the accent color. */
+export interface TextSegment {
+  text: string;
+  italic?: boolean;
+  accent?: boolean;
+}
+
+/** Headlines/statements are modeled as lines of segments so the display font
+ *  can mix roman and italic runs, and lay each line out on its own row. */
+export const creativeHero: {
+  eyebrow: string;
+  headline: TextSegment[][];
+  cta: string;
+  marquee: string[];
+} = {
+  eyebrow: "The Artist",
+  headline: [
+    [{ text: "Ahnaf makes" }],
+    [
+      { text: "photographs", italic: true, accent: true },
+      { text: ", " },
+      { text: "music", italic: true, accent: true },
+    ],
+    [{ text: "& other beautiful things." }],
+  ],
+  cta: "See the gallery",
+  marquee: [
+    "PHOTOGRAPHY",
+    "MUSIC",
+    "DESIGN",
+    "STORYTELLING",
+    "35MM",
+    "LIGHT",
+    "GRAIN",
+  ],
+};
+
+export type CraftIcon = "Camera" | "Music" | "PenTool";
+
+export interface Craft {
+  title: string;
+  description: string;
+  icon: CraftIcon;
+  link: string;
+}
+
+export interface GalleryItem {
+  title: string;
+  medium: string;
+  /** Optional — drop a file in public/assets/gallery/ and set this to upgrade
+   *  the tile from an abstract gradient to a real photograph. */
+  image?: string;
+  palette: [string, string];
+}
+
+export const creative: {
+  statement: TextSegment[][];
+  crafts: Craft[];
+  gallery: GalleryItem[];
+} = {
+  statement: [
+    [
+      { text: "I chase the " },
+      { text: "quiet in-between", italic: true, accent: true },
+      { text: "—" },
+    ],
+    [{ text: "the half-second before a room" }],
+    [
+      { text: "remembers it's being " },
+      { text: "watched", italic: true, accent: true },
+      { text: "." },
+    ],
+  ],
+  crafts: [
+    {
+      title: "Photography",
+      description:
+        "Shooting on grainy, warm-toned 35mm around Greencastle and wherever the light gets interesting. Portraits, streets, and the long golden hours in between.",
+      icon: "Camera",
+      link: "https://www.instagram.com/itsded_inside/",
+    },
+    {
+      title: "Music",
+      description:
+        "A guitar, a loop pedal, and too many half-finished ideas. I play by feel — bending progressions until they say something I couldn't otherwise.",
+      icon: "Music",
+      link: "https://www.instagram.com/itsded_inside/",
+    },
+    {
+      title: "Design",
+      description:
+        "Interfaces and small print pieces where typography does the heavy lifting. I like whitespace, restraint, and one loud gesture per page.",
+      icon: "PenTool",
+      link: "https://github.com/AhnfLabib",
+    },
+  ],
+  gallery: [
+    {
+      title: "Golden Hour, Greencastle",
+      medium: "35mm · 2025",
+      palette: ["#e9a23b", "#8c3d15"],
+    },
+    {
+      title: "Practice Room, 11 PM",
+      medium: "Digital · 2025",
+      palette: ["#3a3550", "#12101c"],
+    },
+    {
+      title: "Frost on the Quad",
+      medium: "35mm · 2024",
+      palette: ["#cdd7e0", "#6d7f92"],
+    },
+    {
+      title: "Six Strings, Soft Focus",
+      medium: "35mm · 2025",
+      palette: ["#c65a2e", "#40160c"],
+    },
+    {
+      title: "Last Light, Highway 231",
+      medium: "Digital · 2024",
+      palette: ["#f0663c", "#3a1a2e"],
+    },
+    {
+      title: "Stillness, Studio Floor",
+      medium: "35mm · 2025",
+      palette: ["#b9a67f", "#4a4030"],
+    },
+    {
+      title: "Neon After Rain",
+      medium: "Digital · 2025",
+      palette: ["#2e6c8c", "#0e1c26"],
+    },
+    {
+      title: "Self, Overexposed",
+      medium: "35mm · 2024",
+      palette: ["#e7d3b0", "#9a6b3f"],
+    },
+  ],
+};

@@ -1,41 +1,29 @@
-import { Mail, Linkedin, Github, Instagram, type LucideIcon } from "lucide-react";
-import { socials } from "../data/content";
-
-type SocialIconName = (typeof socials)[number]["icon"];
-
-const iconMap: Record<SocialIconName, LucideIcon> = {
-  mail: Mail,
-  linkedin: Linkedin,
-  github: Github,
-  instagram: Instagram,
-};
+import { usePersona } from "../persona/PersonaContext";
 
 export default function Footer() {
-  return (
-    <footer className="py-16 px-6 flex flex-col items-center gap-6">
-      {/* Social icon buttons */}
-      <div className="flex items-center gap-4 flex-wrap justify-center">
-        {socials.map((social) => {
-          const Icon = iconMap[social.icon];
-          return (
-            <a
-              key={social.label}
-              href={social.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={social.label}
-              className="neu-btn w-12 h-12 flex items-center justify-center text-ink-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              <Icon size={20} />
-            </a>
-          );
-        })}
-      </div>
+  const { persona } = usePersona();
 
-      {/* Copyright */}
-      <p className="text-sm text-ink-faint">
-        © 2026 Ahnaf Labib. All rights reserved.
+  if (persona === "dev") {
+    return (
+      <footer className="border-t border-line bg-surface/50">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 font-mono text-xs text-ink-faint sm:px-6">
+          <span className="text-accent">-- INSERT --</span>
+          <span>ahnaf@portfolio</span>
+          <span aria-hidden="true">·</span>
+          <span>built with react + vite</span>
+          <span aria-hidden="true">·</span>
+          <span>© 2026</span>
+        </div>
+      </footer>
+    );
+  }
+
+  return (
+    <footer className="border-t border-line px-4 py-14 text-center sm:px-6">
+      <p className="font-display text-lg italic text-ink-soft">
+        Made with intention.
       </p>
+      <p className="mt-1 text-sm text-ink-faint">© 2026 Ahnaf Labib</p>
     </footer>
   );
 }
