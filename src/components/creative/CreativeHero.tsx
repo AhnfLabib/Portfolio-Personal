@@ -3,6 +3,7 @@ import type { Variants } from "framer-motion";
 import { creativeHero } from "../../data/content";
 import SegmentedText from "./SegmentedText";
 import Marquee from "./Marquee";
+import CreativeBackground from "./CreativeBackground";
 
 const container: Variants = {
   hidden: {},
@@ -26,11 +27,13 @@ export default function CreativeHero() {
       id="top"
       className="relative flex min-h-[calc(100svh-4rem)] flex-col justify-between overflow-hidden"
     >
+      <CreativeBackground />
+
       <motion.div
         variants={container}
         initial="hidden"
         animate="show"
-        className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-16 sm:px-6"
+        className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-16 sm:px-6"
       >
         <motion.div variants={rise} className="flex items-center gap-4">
           <motion.span
@@ -78,7 +81,7 @@ export default function CreativeHero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1, delay: 0.5 }}
-        className="pb-10"
+        className="relative z-10 pb-10"
       >
         <Marquee items={creativeHero.marquee} />
       </motion.div>

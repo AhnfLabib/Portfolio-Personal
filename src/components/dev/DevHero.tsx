@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { hero } from "../../data/content";
+import DevBackground from "./DevBackground";
 
 /**
  * Classic type-on / type-off marquee. Ported from the legacy Hero component so
@@ -58,30 +59,8 @@ export default function DevHero() {
       id="home"
       className="relative flex min-h-[100svh] flex-col items-center justify-center overflow-hidden px-4 pt-24 pb-20 sm:px-6"
     >
-      {/* Masked grid backdrop */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, var(--color-line) 1px, transparent 1px), linear-gradient(to bottom, var(--color-line) 1px, transparent 1px)",
-          backgroundSize: "56px 56px",
-          maskImage:
-            "radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 78%)",
-          WebkitMaskImage:
-            "radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 78%)",
-          opacity: 0.45,
-        }}
-      />
-      {/* Accent radial glow */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-1/3 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full"
-        style={{
-          background:
-            "radial-gradient(circle, color-mix(in srgb, var(--color-accent) 18%, transparent) 0%, transparent 62%)",
-        }}
-      />
+      {/* Animated grid + tracer beams + breathing glow */}
+      <DevBackground />
 
       <motion.div
         initial={{ opacity: 0, y: 24 }}
