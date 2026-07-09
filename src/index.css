@@ -1,109 +1,90 @@
 @import "tailwindcss";
 
 /*
- * Neumorphic design system.
- * One surface color everywhere; depth comes exclusively from dual shadows
- * (white highlight top-left, cool gray shadow bottom-right).
+ * Dual-persona semantic token system.
+ *
+ * DEV ("The Engineer") values are the defaults, living in @theme so Tailwind
+ * v4 generates the utilities (bg-bg, text-ink, border-line, ...). The CREATIVE
+ * ("The Artist") persona re-declares the SAME custom properties on
+ * html[data-persona="creative"], which cascades into every generated utility —
+ * so a single attribute flip re-themes the entire site.
  */
 @theme {
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
 
-  --color-surface: #e6e9f0;
-  --color-shadow-dark: #c8ccd7;
-  --color-highlight: #ffffff;
+  /* DEV persona — deep ink, terminal lime (defaults). */
+  --color-bg: #0a0d13;
+  --color-surface: #101623;
+  --color-surface-2: #161e2e;
+  --color-line: #1f2937;
+  --color-ink: #e7ecf4;
+  --color-ink-soft: #94a3b8;
+  --color-ink-faint: #5b6779;
+  --color-accent: #a3e635;
+  --color-accent-soft: #bef264;
+  --color-accent-ink: #0a0d13;
+}
 
-  --color-ink: #3d4453;
-  --color-ink-soft: #6b7288;
-  --color-ink-faint: #9aa1b5;
-
-  --color-accent: #5b5fe9;
-  --color-accent-soft: #7a7df0;
-
-  --radius-soft: 1.25rem;
-  --radius-softer: 2rem;
-
-  /* Raised: element extruded out of the surface */
-  --shadow-raise: -6px -6px 14px var(--color-highlight),
-    6px 6px 14px rgba(163, 177, 198, 0.55);
-  --shadow-raise-lg: -10px -10px 24px var(--color-highlight),
-    10px 10px 24px rgba(163, 177, 198, 0.6);
-  --shadow-raise-sm: -3px -3px 7px var(--color-highlight),
-    3px 3px 7px rgba(163, 177, 198, 0.5);
-
-  /* Pressed: element carved into the surface */
-  --shadow-press: inset -4px -4px 9px var(--color-highlight),
-    inset 4px 4px 9px rgba(163, 177, 198, 0.55);
-  --shadow-press-sm: inset -2px -2px 5px var(--color-highlight),
-    inset 2px 2px 5px rgba(163, 177, 198, 0.5);
+/* CREATIVE persona — warm paper, burnt orange. Overrides the raw properties. */
+html[data-persona="creative"] {
+  --color-bg: #f6f1e7;
+  --color-surface: #fffcf5;
+  --color-surface-2: #efe7d8;
+  --color-line: #e0d5c0;
+  --color-ink: #1d1a16;
+  --color-ink-soft: #5c554a;
+  --color-ink-faint: #95897a;
+  --color-accent: #dd4f26;
+  --color-accent-soft: #f0663c;
+  --color-accent-ink: #fffcf5;
 }
 
 html {
   scroll-behavior: smooth;
+  background-color: var(--color-bg);
 }
 
 body {
-  background-color: var(--color-surface);
+  background-color: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/*
+ * Liquid theme swap: gently cross-fade color-bearing properties when the
+ * persona flips. Element-level transition utilities (e.g. transition-colors
+ * duration-200 on buttons) win on specificity, so interactive states stay snappy.
+ */
+*,
+*::before,
+*::after {
+  transition: background-color 500ms ease, border-color 500ms ease,
+    color 500ms ease, fill 500ms ease, stroke 500ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 @layer components {
-  /* Extruded card */
-  .neu-raised {
+  /* Bordered surface card — the shared "container" look across both personas. */
+  .container-line {
     background-color: var(--color-surface);
-    border-radius: var(--radius-soft);
-    box-shadow: var(--shadow-raise);
-  }
-
-  .neu-raised-lg {
-    background-color: var(--color-surface);
-    border-radius: var(--radius-softer);
-    box-shadow: var(--shadow-raise-lg);
-  }
-
-  .neu-raised-sm {
-    background-color: var(--color-surface);
-    border-radius: 0.875rem;
-    box-shadow: var(--shadow-raise-sm);
-  }
-
-  /* Carved-in well (inputs, grooves, active states) */
-  .neu-inset {
-    background-color: var(--color-surface);
-    border-radius: var(--radius-soft);
-    box-shadow: var(--shadow-press);
-  }
-
-  .neu-inset-sm {
-    background-color: var(--color-surface);
-    border-radius: 0.875rem;
-    box-shadow: var(--shadow-press-sm);
-  }
-
-  /* Tactile button: raised at rest, pressed on :active */
-  .neu-btn {
-    background-color: var(--color-surface);
-    border-radius: 9999px;
-    box-shadow: var(--shadow-raise);
-    transition: box-shadow 200ms ease, color 200ms ease, transform 200ms ease;
-  }
-
-  .neu-btn:hover {
-    box-shadow: var(--shadow-raise-lg);
-  }
-
-  .neu-btn:active {
-    box-shadow: var(--shadow-press);
-    transform: scale(0.98);
-  }
-
-  /* Small uppercase section label */
-  .neu-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    color: var(--color-ink-faint);
+    border: 1px solid var(--color-line);
+    border-radius: 1rem;
   }
 }
