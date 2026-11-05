@@ -374,3 +374,19 @@ git commit -m "feat(artist): assemble redesigned page and remove old sections"
 git add docs/superpowers/reports
 git commit -m "docs(artist): browser and taste verification report"
 ```
+
+---
+
+### Task 9: Verification fixes (from the Task 8 report)
+
+**Files:**
+- Modify: `src/index.css` (creative persona tokens only), `index.html` (fonts loading, hero preload), `src/App.tsx` (lazy personas), `src/components/creative/CreativeHero.tsx`, `CreativeMusic.tsx`, `CreativeContact.tsx`, `DraftPlayer.tsx`
+- Test: existing suites; add `src/App.test.tsx` for the lazy split
+
+- [ ] **Step 1: Contrast.** In `index.css` under `html[data-persona="creative"]`: `--color-ink-faint` → a value giving ≥ 4.5:1 on `#f6f1e7` (e.g. `#6b6253`); `--color-accent` → ≥ 4.5:1 for white text on it and for it as small text on paper (e.g. `#b9371a`), `--color-accent-soft` one step lighter (`#d04a2a`). Verify with a contrast calculation in a test (`src/theme.test.ts`: parse the two values from `index.css` and assert ratios).
+- [ ] **Step 2: Alignment.** Hero bottom block uses the same `.wrap` padding as other sections (remove any extra inset); cover frames left-aligned under their link lines (`mx-auto` → none; keep the width cap); contact eyebrow centred (rule on both sides or no rule).
+- [ ] **Step 3: Fonts.** Make the Google Fonts stylesheet non-render-blocking in `index.html` (`media="print" onload="this.media='all'"` + `<noscript>` fallback) and keep `display=swap`.
+- [ ] **Step 4: Code split.** `App.tsx`: `const DevPortfolio = lazy(() => import(...))`, same for `CreativePortfolio`, inside `<Suspense fallback={null}>`. Test: rendering the shell with persona creative does not import the Dev chunk (spy on the dynamic import via `vi.mock` of the Dev module throwing if imported).
+- [ ] **Step 5: Hero discovery.** `index.html`: `<link rel="preload" as="image" href="/gallery/hero.jpg" fetchpriority="high">` (20 KB; acceptable on the Dev persona too).
+- [ ] **Step 6: Audio.** `DraftPlayer`: `preload="none"` (duration comes from `content.ts`).
+- [ ] **Step 7: Re-verify.** Re-run the Task 8 checks 7–9 (a11y pass, consistency.mjs contrast/alignment rows, Lighthouse ×3) and append results to the verification report. Commit.
