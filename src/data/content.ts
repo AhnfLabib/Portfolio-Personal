@@ -23,13 +23,13 @@ export const hero = {
   name: "Ahnaf Labib",
   // Dev-facing roles only; the artistic hats live in the creative persona.
   rolesDev: [
-    "An Undergraduate Student",
-    "An Aspiring Software Engineer",
-    "An Aspiring Front-end Designer",
-    "An iDTech SDE Instructor",
-    "A Former GDSC Lead",
+    "An AI Solutions Engineer",
+    "A Full-Stack Developer",
+    "A DePauw CS Graduate",
+    "A Former iD Tech Instructor",
+    "A Former GDSC Tech Lead",
   ],
-  tagline: "CS @ DePauw · SWE intern @ Tenzer · building LLM pipelines by day.",
+  tagline: "AI Solutions Engineer @ Bridge Builder Strategies · DePauw CS '26 · building agentic AI by day.",
 } as const;
 
 export const about = {

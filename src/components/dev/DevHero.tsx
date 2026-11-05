@@ -46,8 +46,8 @@ interface TerminalLine {
 }
 
 const TERMINAL_LINES: TerminalLine[] = [
-  { prompt: "$ whoami", output: "ahnaf — cs @ depauw · swe intern @ tenzer" },
-  { prompt: "$ current --focus", output: "llm pipelines · react · teaching" },
+  { prompt: "$ whoami", output: "ahnaf — ai solutions engineer @ bridge builder strategies" },
+  { prompt: "$ current --focus", output: "agentic ai · mcp · full-stack · data pipelines" },
 ];
 
 export default function DevHero() {
