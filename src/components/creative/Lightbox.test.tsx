@@ -123,6 +123,48 @@ describe("Lightbox", () => {
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });
 
+  it("captures the pointer for a swipe on the image but not for a press on a button", () => {
+    const capture = vi.fn();
+    const original = HTMLElement.prototype.setPointerCapture;
+    HTMLElement.prototype.setPointerCapture = capture;
+    try {
+      render(<Lightbox rolls={rolls} pos={{ roll: 0, frame: 1 }} onClose={() => {}} onNavigate={() => {}} returnFocusTo={null} />);
+      for (const name of ["Close", "Previous frame", "Next frame"]) {
+        fireEvent.pointerDown(screen.getByRole("button", { name }), { clientX: 300, pointerId: 1 });
+      }
+      expect(capture).not.toHaveBeenCalled();
+      fireEvent.pointerDown(screen.getByRole("img"), { clientX: 300, pointerId: 7 });
+      expect(capture).toHaveBeenCalledTimes(1);
+      expect(capture).toHaveBeenCalledWith(7);
+    } finally {
+      HTMLElement.prototype.setPointerCapture = original;
+    }
+  });
+
+  it("a backdrop tap after a touch swipe (no click) still closes", () => {
+    const onClose = vi.fn();
+    render(<Lightbox rolls={rolls} pos={{ roll: 0, frame: 1 }} onClose={onClose} onNavigate={() => {}} returnFocusTo={null} />);
+    const dialog = screen.getByRole("dialog");
+    const backdrop = dialog.parentElement!;
+    fireEvent.pointerDown(dialog, { clientX: 300, pointerId: 1 });
+    fireEvent.pointerUp(dialog, { clientX: 200, pointerId: 1 });
+    // touch: no click follows the swipe
+    fireEvent.pointerDown(backdrop, { clientX: 10, pointerId: 2 });
+    fireEvent.pointerUp(backdrop, { clientX: 10, pointerId: 2 });
+    fireEvent.click(backdrop);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("only the active control turns accent; an end control is dimmed without hover accent", () => {
+    render(<Lightbox rolls={rolls} pos={{ roll: 0, frame: 0 }} onClose={() => {}} onNavigate={() => {}} returnFocusTo={null} />);
+    const prev = screen.getByRole("button", { name: "Previous frame" });
+    const next = screen.getByRole("button", { name: "Next frame" });
+    expect(prev).toHaveClass("opacity-40");
+    expect(prev.className).not.toMatch(/hover:text-accent/);
+    expect(next.className).toMatch(/hover:text-accent/);
+    expect(next).not.toHaveClass("opacity-40");
+  });
+
   it("marks prev/next aria-disabled at the very ends and ignores their clicks", async () => {
     const user = userEvent.setup();
     const onNavigate = vi.fn();

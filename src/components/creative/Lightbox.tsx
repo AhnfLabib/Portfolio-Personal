@@ -8,9 +8,12 @@ const SWIPE_PX = 40;
 
 const control =
   "fixed z-10 items-center justify-center p-3 font-mono text-xs uppercase tracking-wide text-white/80 " +
-  "hover:text-accent focus-visible:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
-const dimmed = "cursor-default opacity-40 hover:text-white/80";
+/** Accent on the active control only; a control at the very end is dimmed and never turns accent. */
+function controlClass(atLimit: boolean): string {
+  return `${control} ${atLimit ? "cursor-default opacity-40" : "hover:text-accent focus-visible:text-accent"}`;
+}
 
 export default function Lightbox({
   rolls,
@@ -97,8 +100,13 @@ export default function Lightbox({
   };
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    downX.current = e.clientX;
     dragged.current = false;
+    // A press on a control is a click, not a swipe: capturing it would retarget the click to the dialog.
+    if ((e.target as Element).closest("button")) {
+      downX.current = null;
+      return;
+    }
+    downX.current = e.clientX;
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
   const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
@@ -114,6 +122,8 @@ export default function Lightbox({
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/92 opacity-100 transition-opacity duration-200 starting:opacity-0 motion-reduce:transition-none"
+      // A touch swipe fires no click, so clear a stale drag on the next press anywhere.
+      onPointerDown={() => (dragged.current = false)}
       onClick={(e) => {
         // A click that ends a swipe is not a tap on the backdrop.
         if (dragged.current) {
@@ -137,7 +147,7 @@ export default function Lightbox({
         <p aria-live="polite" className="fixed left-4 top-4 font-mono text-xs uppercase tracking-wide text-white/80">
           {frameLabel(pos.roll, pos.frame)}
         </p>
-        <button ref={closeRef} type="button" aria-label="Close" onClick={onClose} className={`${control} right-2 top-2 flex`}>
+        <button ref={closeRef} type="button" aria-label="Close" onClick={onClose} className={`${controlClass(false)} right-2 top-2 flex`}>
           <span aria-hidden="true">Close ✕</span>
         </button>
         <button
@@ -146,7 +156,7 @@ export default function Lightbox({
           aria-label="Previous frame"
           aria-disabled={atStart ? "true" : undefined}
           onClick={() => go(-1)}
-          className={`${control} ${atStart ? dimmed : ""} left-2 top-1/2 hidden -translate-y-1/2 sm:flex`}
+          className={`${controlClass(atStart)} left-2 top-1/2 hidden -translate-y-1/2 sm:flex`}
         >
           <span aria-hidden="true">←</span>
         </button>
@@ -156,7 +166,7 @@ export default function Lightbox({
           aria-label="Next frame"
           aria-disabled={atEnd ? "true" : undefined}
           onClick={() => go(1)}
-          className={`${control} ${atEnd ? dimmed : ""} right-2 top-1/2 hidden -translate-y-1/2 sm:flex`}
+          className={`${controlClass(atEnd)} right-2 top-1/2 hidden -translate-y-1/2 sm:flex`}
         >
           <span aria-hidden="true">→</span>
         </button>
