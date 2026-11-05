@@ -261,3 +261,34 @@ house rules, checklist and "Never" list. Changes folded in above:
 Pre-existing and out of scope, noted for a later pass: scroll-triggered
 fade-ins across the site and the caption under the Artist page headshot are
 both on the skill's "Never" list.
+
+## Revision: companions v2 (user decision, 2026-11-05)
+
+The owner reviewed the built companions and overrode design-review item 2:
+the companions must be larger and always animated, and the cat must roam.
+This supersedes the "Motion only runs while the card is active" rule and
+the size limits above.
+
+- **Sizes:** Ahnaf 48 px tall (grid up to 32×32), cat 32 px tall (grid up
+  to 32×24). They still sit on the card's title bar; the card wrapper gets
+  enough top clearance that nothing clips, and the hero's layout below the
+  card is unchanged.
+- **Ahnaf, always animated:** 2-frame breathing bob on a 2.4 s cycle;
+  blink every 3–4 s; turns his head toward the prompt while the visitor is
+  typing; thinking / happy / confused poses as before; `shades` as before.
+- **Cat, always roaming:** a wander state machine that runs from page load:
+  `walk` a random distance for 1–3 s (flipping to face the direction) →
+  one of `sit` / `stretch` / `groom` / `tail-flick` for 1–2 s → `walk`
+  again; roughly every 40–60 s it curls up and `sleep`s for ~8 s, then
+  wakes. Territory: the full width of the title bar, and it may hop down
+  the card's right edge and walk along the bottom edge of the card, then
+  hop back up. It never covers the log text (it moves along the card's
+  outer edges only). `pet` → `purr` with hearts in place for 2 s; `sudo`
+  → shades.
+- **Palette:** unchanged tokens; the cat gets an `ink-soft` belly/muzzle
+  so it reads at 32 px; skins as before.
+- **Reduced motion:** static idle frames, no roaming, no bob, no blink.
+  This is the only off switch.
+- **Performance:** one `requestAnimationFrame`/timer loop per companion
+  set; CSS transforms only; paused when the document is hidden
+  (`visibilitychange`).

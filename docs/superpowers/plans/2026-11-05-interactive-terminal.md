@@ -535,3 +535,26 @@ Playwright `emulateMedia({ reducedMotion: "reduce" })`: run `help`; output appea
 git add README.md
 git commit -m "docs: terminal and ask setup"
 ```
+
+---
+
+### Task 9: Companions v2 — larger, always animated, roaming cat
+
+**Spec:** the "Revision: companions v2" section at the end of the spec. It
+supersedes the Global Constraints lines on companion size and idle motion.
+
+**Files:**
+- Modify: `src/components/dev/terminal/sprites.ts` (redraw at the new grid sizes; new cat poses `sit`, `groom`, `tail-flick`, `hop`, `walk1..4`; Ahnaf `breathe1/2`, `look` (head toward prompt))
+- Modify: `src/components/dev/terminal/Companion.tsx` (wander state machine, rAF/timer loop, visibility pause, position along the card's edges)
+- Modify: `src/components/dev/terminal/Terminal.tsx` only for the wrapper's top clearance / overflow so 48 px sprites are not clipped
+- Test: `sprites.test.ts`, `Companion.test.tsx` (update), plus a pure `wander.ts` + `wander.test.ts` for the state machine
+
+**Interfaces:**
+- `wander.ts`: `export type WanderState = { phase: "walk" | "sit" | "stretch" | "groom" | "tail" | "sleep" | "hop"; x: number; edge: "top" | "right" | "bottom"; facing: 1 | -1; until: number }`; `export function stepWander(s: WanderState, now: number, bounds: { topWidth: number; rightHeight: number; bottomWidth: number }, rng: () => number): WanderState` — pure; deterministic given `rng`.
+- `Companions` keeps its props (`mood, skin, shades, active, petTick, reduceMotion`); `active` now only affects Ahnaf's `look`/typing poses.
+
+- [ ] **Step 1: Write failing tests** — `stepWander`: never leaves bounds; `walk` lasts 1000–3000 ms; rest phases 1000–2000 ms; sleep ~8000 ms occurs within 60 s of simulated time with a fixed rng; `hop` transitions top→right→bottom and back; facing flips with direction. Sprites: bounds ≤32×32 / ≤32×24, palette-only, every pose in every skin. Companion: under `reduceMotion` no timers; with timers running, the cat's `data-pose` changes over 5 s; `document.hidden` pauses (no state change while hidden).
+- [ ] **Step 2: Run to verify they fail.**
+- [ ] **Step 3: Implement** — redraw sprites at 2× detail; wander loop with `setTimeout` per phase + CSS `transition: transform` per walk leg (`left`/`top` via `translate`), edges mapped to the card's `getBoundingClientRect`-free layout: top edge = `translate(x, 0)`, right edge = `translate(W, y) rotate(90deg)`, bottom edge = `translate(x, H) scaleY(-1)`? No — keep the cat upright: on the right edge it "hops" down in 2–3 steps (translateY) and on the bottom edge walks upright along the card's bottom border (`top: 100%`). Pause on `visibilitychange`.
+- [ ] **Step 4: Run tests, `npm run build`, browser check** — 1440 and 390: 10 s screenshots every 2 s show the cat in different positions; nothing clipped; card height and CTA top unchanged from Task 6 numbers (175 / 191 px; CTA top 715.30 / 647.69).
+- [ ] **Step 5: Commit.**
