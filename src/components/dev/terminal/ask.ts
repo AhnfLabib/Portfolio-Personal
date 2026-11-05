@@ -4,7 +4,7 @@ export const ASK_TIMEOUT_MS = 15_000;
 export const OFFLINE_LINE = "ask is offline right now — try 'help'";
 export const CAP_LINE = "daily limit reached (10 questions). email me instead → contact";
 
-const QUOTA_KEY = "terminal.ask.quota";
+const QUOTA_KEY = "portfolio-ask-quota";
 
 export interface Quota {
   date: string; // YYYY-MM-DD, local calendar day

@@ -19,12 +19,22 @@ describe("quota", () => {
   it("quota starts at 0 and resets on a new day", () => {
     const s = memStorage();
     expect(readQuota(s, new Date("2026-11-05T10:00"))).toEqual({ date: "2026-11-05", count: 0 });
-    for (let i = 0; i < 10; i++) consumeQuota(s, new Date("2026-11-05T10:00"));
+    for (let i = 0; i < 9; i++) consumeQuota(s, new Date("2026-11-05T10:00"));
+    expect(consumeQuota(s, new Date("2026-11-05T10:00"))).toEqual({ allowed: true, remaining: 0 });
     expect(consumeQuota(s, new Date("2026-11-05T23:59")).allowed).toBe(false);
+    expect(s.getItem("portfolio-ask-quota")).not.toBeNull();
     expect(consumeQuota(s, new Date("2026-11-06T00:01")).allowed).toBe(true);
   });
   it("quota works with null storage (never blocks)", () => {
     expect(consumeQuota(null, new Date()).allowed).toBe(true);
+  });
+  it("quota never blocks when storage throws", () => {
+    const boom = (): never => {
+      throw new Error("denied");
+    };
+    const s = { ...memStorage(), getItem: boom, setItem: boom } as Storage;
+    for (let i = 0; i < 12; i++) expect(consumeQuota(s, new Date()).allowed).toBe(true);
+    expect(readQuota(s, new Date()).count).toBe(0);
   });
 });
 
@@ -50,9 +60,20 @@ describe("ask", () => {
   it("askServer maps non-200 and bad JSON to offline, 200 {answer} to ok", async () => {
     const bad = vi.fn().mockResolvedValue(new Response("nope", { status: 503 }));
     expect(await askServer("hi", { fetch: bad })).toEqual({ ok: false, reason: "offline" });
+    const notJson = vi.fn().mockResolvedValue(new Response("not json", { status: 200 }));
+    expect(await askServer("hi", { fetch: notJson })).toEqual({ ok: false, reason: "offline" });
     const good = vi.fn().mockResolvedValue(Response.json({ answer: "I build things." }));
-    expect(await askServer("hi", { fetch: good })).toEqual({ ok: true, answer: "I build things." });
-    expect(good).toHaveBeenCalledWith("/api/ask", expect.objectContaining({ method: "POST" }));
+    const signal = new AbortController().signal;
+    expect(await askServer("hi", { fetch: good, signal })).toEqual({ ok: true, answer: "I build things." });
+    expect(good).toHaveBeenCalledWith(
+      "/api/ask",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: "hi" }),
+        signal,
+      }),
+    );
   });
   it("ask over the cap returns cap without calling fetch", async () => {
     const s = memStorage();
