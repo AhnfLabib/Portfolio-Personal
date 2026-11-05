@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { hero } from "../../data/content";
 import DevBackground from "./DevBackground";
+import Terminal from "./terminal/Terminal";
 
 /**
  * Classic type-on / type-off marquee. Ported from the legacy Hero component so
@@ -39,16 +40,6 @@ function useTypingAnimation(phrases: readonly string[]): string {
 
   return displayText;
 }
-
-interface TerminalLine {
-  prompt: string;
-  output: string;
-}
-
-const TERMINAL_LINES: TerminalLine[] = [
-  { prompt: "$ whoami", output: "ahnaf — ai solutions engineer @ bridge builder strategies" },
-  { prompt: "$ current --focus", output: "agentic ai · mcp · full-stack · data pipelines" },
-];
 
 export default function DevHero() {
   const typedText = useTypingAnimation(hero.rolesDev);
@@ -94,34 +85,14 @@ export default function DevHero() {
           </p>
         </div>
 
-        {/* Fake terminal window */}
+        {/* Interactive terminal */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
-          className="mt-10 w-full max-w-xl overflow-hidden rounded-xl border border-line bg-surface text-left shadow-2xl shadow-black/40"
+          className="mt-10 w-full max-w-xl"
         >
-          <div className="flex items-center gap-2 border-b border-line bg-surface-2 px-4 py-3">
-            <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
-            <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
-            <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
-            <span className="ml-2 font-mono text-xs text-ink-faint">
-              ahnaf@portfolio: ~
-            </span>
-          </div>
-          <div className="space-y-3 p-4 font-mono text-xs sm:text-sm">
-            {TERMINAL_LINES.map((line, i) => (
-              <motion.div
-                key={line.prompt}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.5 + i * 0.35 }}
-              >
-                <p className="text-accent">{line.prompt}</p>
-                <p className="mt-1 text-ink-soft">{line.output}</p>
-              </motion.div>
-            ))}
-          </div>
+          <Terminal />
         </motion.div>
 
         {/* CTAs */}
