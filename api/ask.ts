@@ -31,18 +31,26 @@ export async function callProvider(
   question: string,
   deps: { fetch: typeof fetch; apiKey: string; signal: AbortSignal },
 ): Promise<string> {
-  const res = await deps.fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": deps.apiKey },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: buildSystemPrompt() }] },
-      contents: [{ role: "user", parts: [{ text: question }] }],
-      // Minimal thinking keeps latency low; the larger budget leaves room for any
-      // reasoning tokens so a 120-word answer (capped in the system prompt) is never cut.
-      generationConfig: { maxOutputTokens: 600, temperature: 0.4, thinkingConfig: { thinkingLevel: "minimal" } },
-    }),
-    signal: deps.signal,
-  });
+  const send = (thinking: boolean) =>
+    deps.fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": deps.apiKey },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: buildSystemPrompt() }] },
+        contents: [{ role: "user", parts: [{ text: question }] }],
+        // Minimal thinking keeps latency low; the larger budget leaves room for any
+        // reasoning tokens so a 120-word answer (capped in the system prompt) is never cut.
+        generationConfig: {
+          maxOutputTokens: 600,
+          temperature: 0.4,
+          ...(thinking ? { thinkingConfig: { thinkingLevel: "minimal" } } : {}),
+        },
+      }),
+      signal: deps.signal,
+    });
+  let res = await send(true);
+  // If the model rejects the thinking setting, retry once without it rather than fail every ask.
+  if (res.status === 400 && /thinking/i.test(await res.text().catch(() => ""))) res = await send(false);
   if (!res.ok) throw new Error(`provider status ${res.status}`);
   const data = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: unknown }[] } }[];

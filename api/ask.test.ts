@@ -173,6 +173,40 @@ describe("provider", () => {
     });
   });
 
+  it("retries once without thinkingConfig when Gemini rejects the thinking setting with 400", async () => {
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { message: 'Unknown name "thinkingLevel"' } }), { status: 400 }),
+      )
+      .mockResolvedValueOnce(geminiOk("He builds agents."));
+    vi.stubGlobal("fetch", fetchSpy);
+    const res = await handler(post({ question: "hi" }, freshIp()));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ answer: "He builds agents." });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const [first, second] = fetchSpy.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)));
+    expect(first.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "minimal" });
+    expect(second.generationConfig).toEqual({ maxOutputTokens: 600, temperature: 0.4 });
+    expect(second.contents).toEqual(first.contents);
+    expect(second.system_instruction).toEqual(first.system_instruction);
+    expect((fetchSpy.mock.calls[1][1] as RequestInit).signal).toBe((fetchSpy.mock.calls[0][1] as RequestInit).signal);
+  });
+
+  it("does not retry a 400 unrelated to thinking, and retries at most once", async () => {
+    let fetchSpy = vi.fn(async () => new Response(JSON.stringify({ error: { message: "bad request" } }), { status: 400 }));
+    vi.stubGlobal("fetch", fetchSpy);
+    let res = await handler(post({ question: "hi" }, freshIp()));
+    expect(res.status).toBe(502);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    fetchSpy = vi.fn(async () => new Response("thinking is not supported", { status: 400 }));
+    vi.stubGlobal("fetch", fetchSpy);
+    res = await handler(post({ question: "hi" }, freshIp()));
+    expect(res.status).toBe(502);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
   it("maps a thrown fetch, missing candidates and an empty answer to 502", async () => {
     const bodies = [
       () => Promise.reject(new TypeError("network")),
