@@ -23,17 +23,19 @@ export const hero = {
   name: "Ahnaf Labib",
   // Dev-facing roles only; the artistic hats live in the creative persona.
   rolesDev: [
-    "An Undergraduate Student",
-    "An Aspiring Software Engineer",
-    "An Aspiring Front-end Designer",
-    "An iDTech SDE Instructor",
-    "A Former GDSC Lead",
+    "An AI Solutions Engineer",
+    "A Full-Stack Developer",
+    "A DePauw CS Graduate",
+    "A Former iD Tech Instructor",
+    "A Former GDSC Tech Lead",
   ],
-  tagline: "CS @ DePauw · SWE intern @ Tenzer · building LLM pipelines by day.",
+  tagline: "AI Solutions Engineer @ Bridge Builder Strategies · DePauw CS '26 · building agentic AI by day.",
 } as const;
 
 export const about = {
   image: "/assets/ahnafLabib.png",
+  /** Illustrated headshot used only on the Artist (creative) page. */
+  artistImage: "/assets/ahnafLabib-artist.jpg",
   paragraphs: [
     "Hi, I'm Ahnaf (Uh-Nuf) — a passionate creator blending technology, design, and innovation to craft meaningful experiences.",
     "As a Computer Science major at DePauw University, I thrive at the intersection of coding and creativity, building intuitive applications and impactful digital content. I've spearheaded social media campaigns, reimagined user interfaces for better engagement, and developed web applications that solve real-world problems. I also enjoy sharing my knowledge, mentoring peers to unlock the exciting potential of STEM.",
@@ -73,28 +75,36 @@ export interface TimelineEntry {
 
 export const experience: TimelineEntry[] = [
   {
+    logo: "/assets/BBS.png",
+    title: "AI Solutions Engineer",
+    org: "Bridge Builder Strategies",
+    duration: "Jan 2026 – Present",
+    description:
+      "Pioneered the company's first agentic AI development lifecycle, shipping two projects with Claude Code and MCP integrations (Jira, Supabase, Vercel). Built a full-stack workforce intelligence system with NextJS and Supabase for 91 users, covering tasks, skills, and budget evaluation. Automated Jira ticket creation from Granola meeting transcripts with LLM + MCP agents, cutting sprint planning time by 74%. Architected a Fabric medallion Lakehouse that turns five public APIs into 103 decision-support KPIs for 92 Indiana counties.",
+  },
+  {
     logo: "/assets/TNZR.png",
     title: "Software Development Intern",
     org: "Tenzer Technology Center",
-    duration: "Aug 2025 – Present",
+    duration: "Aug 2025 – May 2026",
     description:
-      "Scraped over 5,000 forum contents using Python and BeautifulSoup to train LLMs on author styles, improving precision by 41%. Engineered NLP pipelines with Scikit-learn, the OpenAI API, and Supabase, reducing style-analysis runtime by 36%. Deployed a Flask + Supabase AI agent that automated generation tasks and cut manual editing workload by 58%.",
+      "Scraped over 5,000 forum contents using Python and BeautifulSoup to train LLMs on author styles, improving precision by 41%. Engineered NLP pipelines with Scikit-learn, the Claude API, and Supabase, cutting style-analysis runtime by 36%. Deployed a Flask + Supabase AI agent that automated content generation and reduced manual editing workload by 58%.",
   },
   {
     logo: "/assets/idtech-logo.png",
     title: "Software Development Instructor",
     org: "iD Tech",
-    duration: "Feb 2025 – Present",
+    duration: "Feb 2025 – Dec 2025",
     description:
-      "Taught one-on-one lessons to more than 49 students worldwide in Python, Java, and C++, with 86% successfully completing individual software projects. Designed over 22 applied AI and Machine Learning projects that improved average grades by 51%. Guided students in building chatbots with AWS Lex, Bedrock, and the OpenAI API, reducing debugging cycles by 34%.",
+      "Taught one-on-one lessons to more than 49 students worldwide in Python, Java, and C++, with 86% completing individual software projects. Designed over 22 Machine Learning projects with Pandas, driving student satisfaction and improving average grades by 51%. Guided students in building chatbots with AWS services (Lex, Bedrock) and the Claude API, cutting debugging cycles by 34%.",
   },
   {
     logo: "/assets/CDI.png",
     title: "Software Engineering Intern",
     org: "Center for Diversity & Inclusion",
-    duration: "May 2024 – Present",
+    duration: "May 2024 – May 2025",
     description:
-      "Built a student profile database in Firebase with 448 entries from 31 regions, enhancing event planning and outreach. Formulated more than 22 responsive media queries that reduced cross-device load times by 36% and boosted engagement by 47%. Engineered an AI chatbot with LangChain that supported over 98 student interactions, contributing to a 23% increase in international enrollment.",
+      "Built a student profile database in Firebase with 448 entries from 31 regions, enhancing event planning and outreach efforts. Engineered an AI chatbot with LangChain that handled over 98 student interactions, contributing to a 23% increase in international enrollment.",
   },
   {
     logo: "/assets/HDSTRT.png",
@@ -102,7 +112,7 @@ export const experience: TimelineEntry[] = [
     org: "Headstarter",
     duration: "Jul 2024 – Sep 2024",
     description:
-      "Engineered seven AI projects in six weeks using Python, Django, NextJS, OpenAI, and AWS while following agile methods. Developed three RAG-based web scrapers integrated with Ollama and GPT-4 for high-speed real-time data extraction. Enhanced front-end interfaces by applying Hick's UI/UX principle, increasing user accessibility by 46%.",
+      "Built seven AI projects in six weeks using Python, Django, NextJS, OpenAI, and AWS while following agile methods. Enhanced front-end interfaces with ReactJS and ShadCn components, increasing user accessibility by 46%.",
   },
 ];
 
