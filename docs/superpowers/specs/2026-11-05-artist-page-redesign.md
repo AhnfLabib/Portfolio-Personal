@@ -102,8 +102,8 @@ is dropped to keep the eclipse pair strong).
 
 | Roll | Title | Frames (supplied file → gallery file) |
 |---|---|---|
-| R1 | Light | eclipse corona `9.jpg` → `r1-01`, PS5 room at golden hour `5.jpg` → `r1-02`, cupola at dusk `10.jpg` → `r1-03`, living room `6.jpg` → `r1-04`, porch *(file pending)* → `r1-05` |
-| R2 | Street | Uttara North platform `7.jpg` → `r2-01`, One Way in fog *(pending)* → `r2-02`, fisheye mirror `12.jpg` → `r2-03`, 560 SL on the highway *(pending)* → `r2-04` |
+| R1 | Light | eclipse corona `9.jpg` → `r1-01`, PS5 room at golden hour `5.jpg` → `r1-02`, cupola at dusk `10.jpg` → `r1-03`, living room `6.jpg` → `r1-04`, porch `19.jpg` → `r1-05` |
+| R2 | Street | Uttara North platform `7.jpg` → `r2-01`, One Way in fog `18.jpg` → `r2-02`, fisheye mirror `12.jpg` → `r2-03`, 560 SL on the highway `20.jpg` → `r2-04` |
 | R3 | Stage | red silhouette `13.jpg` → `r3-01`, band in red `14.jpg` → `r3-02`, blue guitarist `15.jpg` → `r3-03`, sax and lights `16.jpg` → `r3-04` |
 | R4 | Portrait | chess sunglasses `11.jpg` → `r4-01` |
 
@@ -264,9 +264,6 @@ after the redesign); it is not modified.
 
 ## Open items
 
-- Three photographs still needed as files: One Way in fog, porch, 560 SL.
-  Their slots are named above; until they arrive the rolls render
-  without them (R1 has four frames, R2 has two).
 - Draft audio files. Until supplied, the Drafts sub-section is not
   rendered.
 - Design work is not a section: Ahnaf's design work is his web projects,
