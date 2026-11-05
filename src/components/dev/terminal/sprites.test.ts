@@ -52,6 +52,12 @@ describe("sprites", () => {
     }
   });
 
+  it("hacker cat keeps its shades lenses dark (stamped after the recolour)", () => {
+    const lensRow = CAT.hacker.shades.frames[0][6];
+    expect(lensRow.slice(2, 7)).toBe("#####");
+    expect(CAT.hacker.shades.frames[0].join("")).not.toContain("a");
+  });
+
   it("toRects skips '.' and maps colours", () => {
     expect(toRects(["#.", ".a"], PALETTE)).toEqual([
       { x: 0, y: 0, fill: "var(--color-ink)" },

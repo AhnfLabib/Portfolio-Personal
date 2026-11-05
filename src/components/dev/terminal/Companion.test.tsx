@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, act } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import { Profiler, type ComponentProps } from "react";
 import { Companions } from "./Companion";
 
 type Props = ComponentProps<typeof Companions>;
@@ -107,9 +107,10 @@ describe("Companions", () => {
     const t = setup({ active: true });
     advance(29_999);
     expect(t.cat()).toBe("awake");
-    expect(t.catBox().style.transition).toBe("transform 1500ms linear");
+    expect(t.catBox().style.transition).toBe("");
     advance(1); // 30 000
     expect(t.cat()).toBe("walk1");
+    expect(t.catBox().style.transition).toBe("transform 1500ms linear");
     const seen: string[] = [];
     for (let i = 0; i < 19; i++) {
       advance(150);
@@ -121,6 +122,7 @@ describe("Companions", () => {
     advance(150); // 33 000
     expect(t.cat()).toBe("awake");
     expect(t.catBox().style.transform).toBe("translateX(0px)");
+    expect(t.catBox().style.transition).toBe("");
     advance(26_999);
     expect(t.cat()).toBe("awake");
     advance(1); // 60 000
@@ -162,6 +164,33 @@ describe("Companions", () => {
     expect(t.cat()).toBe("awake");
   });
 
+  it("toggling reduceMotion does not cut off a purr", () => {
+    const t = setup({ active: true });
+    t.update({ petTick: 1 });
+    advance(500);
+    t.update({ reduceMotion: true });
+    expect(t.cat()).toBe("purr");
+    advance(1499);
+    expect(t.cat()).toBe("purr");
+    advance(1);
+    expect(t.cat()).toBe("awake");
+  });
+
+  it("does not re-render for blinks while mood is not idle", () => {
+    let renders = 0;
+    const onRender = () => void renders++;
+    const utils = render(
+      <Profiler id="c" onRender={onRender}>
+        <Companions {...base} active mood="typing" reduceMotion={false} />
+      </Profiler>,
+    );
+    advance(1000); // let the rising-edge stretch finish
+    const before = renders;
+    advance(8300); // two blink ticks
+    expect(renders).toBe(before);
+    utils.unmount();
+  });
+
   it("purr is state, so it still shows under reduceMotion", () => {
     const t = setup({ active: true, reduceMotion: true });
     t.update({ petTick: 1 });
@@ -188,6 +217,7 @@ describe("Companions", () => {
     expect(t.cat()).toBe("sleep");
     expect(t.ahnaf()).toBe("idle");
     expect(t.catBox().style.transform).toBe("translateX(0px)");
+    expect(t.catBox().style.transition).toBe(""); // snaps home, no slide while asleep
 
     t.update({ active: true, petTick: 1 });
     expect(vi.getTimerCount()).toBeGreaterThan(0);

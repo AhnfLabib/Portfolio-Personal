@@ -11,6 +11,8 @@ const WALK_MS = 3000; // out and back: two 1500 ms legs
 const WALK_FRAME_MS = 150;
 const PURR_MS = 2000;
 const WALK_INSET_PX = 16; // how close to the card's left edge the cat walks
+// Ambient-motion timer keys; purr is state, so it is not among them.
+const AMBIENT = ["blink", "blink-end", "stretch", "walk", "walk-step", "walk-back", "walk-end"];
 
 /** One keyed scheduler for every timer the companions use; re-arming a key replaces it. */
 function createTimers() {
@@ -97,10 +99,15 @@ export function Companions(props: {
   const catRef = useRef<HTMLDivElement>(null);
   const wasActive = useRef(false);
   const lastPetTick = useRef(petTick);
+  const moodRef = useRef(mood);
+
+  useEffect(() => {
+    moodRef.current = mood;
+  }, [mood]);
 
   useEffect(() => () => timers.clear(), [timers]);
 
-  // Ambient motion only while active; going inactive clears every timer.
+  // Ambient motion only while active; going inactive cancels every ambient timer.
   useEffect(() => {
     const rising = active && !wasActive.current;
     wasActive.current = active;
@@ -111,6 +118,7 @@ export function Companions(props: {
         timers.after("stretch", STRETCH_MS, () => setStretch(false));
       }
       timers.every("blink", BLINK_EVERY_MS, () => {
+        if (moodRef.current !== "idle") return; // blinking only shows on the idle face
         setBlink(true);
         timers.after("blink-end", BLINK_MS, () => setBlink(false));
       });
@@ -125,11 +133,10 @@ export function Companions(props: {
       });
     }
     return () => {
-      timers.clear();
+      for (const key of AMBIENT) timers.cancel(key);
       setBlink(false);
       setStretch(false);
       setWalk(null);
-      setPurr(false);
     };
   }, [active, reduceMotion, timers]);
 
@@ -158,7 +165,8 @@ export function Companions(props: {
 
   const catBoxStyle: CSSProperties = {
     transform: `translateX(${walk && !walk.back ? -walk.dx : 0}px)`,
-    transition: reduceMotion ? undefined : "transform 1500ms linear",
+    // only while walking: a cat put to sleep mid-walk snaps home instead of sliding
+    transition: walk && !reduceMotion ? "transform 1500ms linear" : undefined,
   };
 
   return (

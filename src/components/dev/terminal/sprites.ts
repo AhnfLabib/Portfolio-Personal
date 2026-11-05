@@ -274,9 +274,10 @@ const catBrush = (frame: Frame, pose: CatPose): Frame => {
   return stamp(frame, ["a"], row, col);
 };
 
-/* The `shades` pose always wears lenses; the shades skin puts them on every pose. */
+/* The `shades` pose always wears lenses (stamped after the skin, so a recolour
+ * never touches them); the shades skin puts them on every pose. */
 const catPoses = (fn: (frame: Frame, pose: CatPose) => Frame) =>
-  mapPoses(CAT_POSES, (frame, pose) => fn(pose === "shades" ? catLenses(frame, pose) : frame, pose));
+  mapPoses(CAT_POSES, (frame, pose) => (pose === "shades" ? catLenses(fn(frame, pose), pose) : fn(frame, pose)));
 
 export const AHNAF: Record<SkinName, Record<AhnafPose, Sprite>> = {
   default: mapPoses(AHNAF_POSES, (f) => f),
