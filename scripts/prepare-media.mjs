@@ -11,7 +11,7 @@
 // Frame/Roll/Draft objects to paste into content.ts. Originals are not
 // committed. Importing this module does not run the pipeline.
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -51,7 +51,7 @@ export const ALT = {
       "A guitarist bathed in blue light, eyes closed.",
       "A guitarist and a saxophonist backlit by stage beams.",
     ],
-    portrait: ["Half a face in sunglasses whose lens is inked with chess moves."],
+    portrait: ["Half a face in sunglasses whose lens is inked with chess taunts."],
   },
 };
 
@@ -72,12 +72,13 @@ export function slugify(name) {
     .replace(/^-+|-+$/g, "");
 }
 
-/** "1164959c-Untitled_1.qta" → "Untitled 1" */
-export function titleFrom(name) {
-  return stripExt(stripPrefix(name)).replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
-}
-
 export const frameFile = (rollIndex, frameIndex) => `r${rollIndex + 1}-${pad2(frameIndex + 1)}`;
+
+function altFor(id, f) {
+  const alt = ALT.rolls[id]?.[f];
+  if (!alt) throw new Error(`no alt text for roll "${id}" frame ${f + 1}`);
+  return alt;
+}
 
 /**
  * entries = { hero: {width,height}, rolls: {light: [{width,height}], ...},
@@ -93,7 +94,7 @@ export function buildManifest(entries) {
       src: `/gallery/${frameFile(r, f)}.jpg`,
       width: dim.width,
       height: dim.height,
-      alt: ALT.rolls[id][f] ?? "",
+      alt: altFor(id, f),
     })),
   }));
   const drafts = (entries.drafts ?? []).map((d) => ({
@@ -150,17 +151,46 @@ function probeDuration(file) {
   return Number.parseFloat(out.trim());
 }
 
-const DRAFT_SOURCES = ["1164959c-Fog.m4a", "f68e24c5-Untitled_1.qta", "53f155bd-Dragonfly.m4a"];
+/** The three drafts, in display order. Source files are found by slug. */
+export const DRAFTS = [
+  { slug: "fog", title: "Fog" },
+  { slug: "untitled-1", title: "Untitled 1" },
+  { slug: "dragonfly", title: "Dragonfly" },
+];
+
+/**
+ * The file in `files` whose slugify() is `slug` ("1164959c-Fog.m4a" and
+ * "Fog.m4a" both match "fog"). A .mp3 (this script's own output, if --audio
+ * is reused) only counts when no other file matches. Throws on none or several.
+ */
+export function findDraftSource(files, slug) {
+  const matches = files.filter((name) => slugify(name) === slug);
+  const originals = matches.filter((name) => !/\.mp3$/i.test(name));
+  const pick = originals.length ? originals : matches;
+  if (pick.length === 0) throw new Error(`no file for draft "${slug}" (expected e.g. ${slug}.m4a)`);
+  if (pick.length > 1) throw new Error(`several files for draft "${slug}": ${pick.join(", ")}`);
+  return pick[0];
+}
+
+/** --photos <dir> --audio <dir> --out <dir>; photos and audio must exist. */
+export function parseArgs(argv) {
+  const value = (flag) => {
+    const i = argv.indexOf(flag);
+    const v = i === -1 ? undefined : argv[i + 1];
+    if (!v || v.startsWith("--")) throw new Error(`missing value for ${flag} <dir>`);
+    return resolve(v);
+  };
+  const args = { photos: value("--photos"), audio: value("--audio"), out: value("--out") };
+  for (const flag of ["photos", "audio"]) {
+    if (!existsSync(args[flag]) || !statSync(args[flag]).isDirectory()) {
+      throw new Error(`--${flag} ${args[flag]} is not a folder`);
+    }
+  }
+  return args;
+}
 
 async function run(argv) {
-  const arg = (flag) => {
-    const i = argv.indexOf(flag);
-    if (i === -1 || !argv[i + 1]) throw new Error(`missing ${flag} <dir>`);
-    return resolve(argv[i + 1]);
-  };
-  const photos = arg("--photos");
-  const audio = arg("--audio");
-  const out = arg("--out");
+  const { photos, audio, out } = parseArgs(argv);
   const { default: sharp } = await import("sharp");
 
   const galleryDir = join(out, "gallery");
@@ -181,15 +211,14 @@ async function run(argv) {
     }
   }
 
-  const available = new Set(readdirSync(audio));
+  const available = readdirSync(audio);
   const drafts = [];
-  for (const name of DRAFT_SOURCES) {
-    if (!available.has(name)) throw new Error(`missing draft ${name} in ${audio}`);
-    const slug = slugify(name);
+  for (const { slug, title } of DRAFTS) {
+    const name = findDraftSource(available, slug);
     const dest = join(audioDir, `${slug}.mp3`);
     execFileSync("ffmpeg", ["-v", "error", "-y", "-i", join(audio, name), "-map", "0:a:0", "-ac", "2", "-ar", "44100", "-b:a", "128k", dest]);
     const duration = probeDuration(dest);
-    drafts.push({ title: titleFrom(name), slug, duration });
+    drafts.push({ title, slug, duration });
     log.push(`${dest}  ${duration.toFixed(1)} s  ${kb(statSync(dest).size)}`);
   }
 
