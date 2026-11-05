@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Lightbox from "./Lightbox";
 import { nextIndex, type Pos } from "./lightboxNav";
@@ -89,6 +89,73 @@ describe("Lightbox", () => {
     expect(onClose).not.toHaveBeenCalled();
     await user.click(screen.getByRole("dialog").parentElement!);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps keyboard handling after a click on the image moves focus off the buttons", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onNavigate = vi.fn();
+    const pos: Pos = { roll: 0, frame: 1 };
+    render(<Lightbox rolls={rolls} pos={pos} onClose={onClose} onNavigate={onNavigate} returnFocusTo={null} />);
+    await user.click(screen.getByRole("img"));
+    expect(screen.getByRole("dialog")).toHaveFocus();
+    await user.keyboard("{ArrowRight}");
+    expect(onNavigate).toHaveBeenCalledWith(nextIndex(rolls, pos, 1));
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Close" })).toHaveFocus();
+  });
+
+  it("a left swipe of 40px or more navigates to the next frame and does not close", () => {
+    const onClose = vi.fn();
+    const onNavigate = vi.fn();
+    const pos: Pos = { roll: 0, frame: 1 };
+    render(<Lightbox rolls={rolls} pos={pos} onClose={onClose} onNavigate={onNavigate} returnFocusTo={null} />);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.pointerDown(dialog, { clientX: 300, pointerId: 1 });
+    fireEvent.pointerUp(dialog, { clientX: 200, pointerId: 1 });
+    expect(onNavigate).toHaveBeenCalledWith(nextIndex(rolls, pos, 1));
+    fireEvent.click(dialog.parentElement!);
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.pointerDown(dialog, { clientX: 300, pointerId: 2 });
+    fireEvent.pointerUp(dialog, { clientX: 280, pointerId: 2 });
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks prev/next aria-disabled at the very ends and ignores their clicks", async () => {
+    const user = userEvent.setup();
+    const onNavigate = vi.fn();
+    const props = { rolls, onClose: () => {}, onNavigate, returnFocusTo: null };
+    const { rerender } = render(<Lightbox {...props} pos={{ roll: 0, frame: 0 }} />);
+    const prev = screen.getByRole("button", { name: "Previous frame" });
+    expect(prev).toHaveAttribute("aria-disabled", "true");
+    expect(prev).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next frame" })).not.toHaveAttribute("aria-disabled");
+    await user.click(prev);
+    expect(onNavigate).not.toHaveBeenCalled();
+    rerender(<Lightbox {...props} pos={{ roll: 3, frame: 0 }} />);
+    const next = screen.getByRole("button", { name: "Next frame" });
+    expect(next).toHaveAttribute("aria-disabled", "true");
+    await user.click(next);
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it("honours a returnFocusTo that changes in the same update that closes", () => {
+    const a = document.createElement("button");
+    const b = document.createElement("button");
+    document.body.append(a, b);
+    const props = { rolls, onClose: () => {}, onNavigate: () => {} };
+    const { rerender } = render(<Lightbox {...props} pos={{ roll: 0, frame: 0 }} returnFocusTo={a} />);
+    rerender(<Lightbox {...props} pos={null} returnFocusTo={b} />);
+    expect(b).toHaveFocus();
+    a.remove();
+    b.remove();
+  });
+
+  it("announces the frame label politely", () => {
+    render(<Lightbox rolls={rolls} pos={{ roll: 0, frame: 0 }} onClose={() => {}} onNavigate={() => {}} returnFocusTo={null} />);
+    expect(screen.getByText("R1 · 01")).toHaveAttribute("aria-live", "polite");
   });
 
   it("locks body scroll while open and restores on close", () => {
