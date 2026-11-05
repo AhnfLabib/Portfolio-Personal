@@ -21,14 +21,14 @@ export default function CreativeHero() {
       <div className="absolute inset-x-0 bottom-0">
         <div className="mx-auto flex max-w-6xl items-end justify-between gap-6 px-4 pb-8 sm:px-6">
           <div>
-            <p className="font-display text-2xl text-white">Ahnaf Labib</p>
+            <h1 className="font-display text-2xl text-white">Ahnaf Labib</h1>
             <p className="mt-1 text-white/90">{line}</p>
           </div>
           <a
             href="#rolls"
-            className="shrink-0 font-mono text-xs uppercase tracking-wide text-white"
+            className="shrink-0 py-2 font-mono text-xs uppercase tracking-wide text-white underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
           >
-            {cta} ↓
+            {cta} <span aria-hidden="true">↓</span>
           </a>
         </div>
       </div>

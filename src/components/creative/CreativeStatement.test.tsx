@@ -9,6 +9,6 @@ describe("CreativeStatement", () => {
     expect(screen.getByRole("img", { name: "Ahnaf Labib" })).toHaveAttribute("src", about.artistImage);
     expect(screen.queryByText(/the maker/i)).toBeNull();
     expect(screen.getByText(creative.statement)).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(creative.now))).toBeInTheDocument();
+    expect(screen.getByText(`now · ${creative.now}`)).toBeInTheDocument();
   });
 });

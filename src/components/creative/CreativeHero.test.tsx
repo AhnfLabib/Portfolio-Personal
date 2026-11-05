@@ -9,9 +9,9 @@ describe("CreativeHero", () => {
     const img = screen.getByRole("img", { name: creative.hero.image.alt });
     expect(img).toHaveAttribute("fetchpriority", "high");
     expect(img).toHaveAttribute("width");
-    expect(screen.getByText("Ahnaf Labib")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Ahnaf Labib" })).toBeInTheDocument();
     expect(screen.getByText(creative.hero.line)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /See the rolls/ })).toHaveAttribute("href", "#rolls");
+    expect(screen.getByRole("link", { name: creative.hero.cta })).toHaveAttribute("href", "#rolls");
   });
 
   it("hero has no marquee, no decorative blobs", () => {
