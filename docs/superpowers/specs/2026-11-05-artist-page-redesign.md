@@ -1,7 +1,7 @@
 # Artist page redesign
 
 Date: 2026-11-05
-Status: draft for review
+Status: reviewed with the user; music and design decisions folded in
 
 ## Goal
 
@@ -28,7 +28,7 @@ pictures, one section per screen).
 | 1 | Hero | `top` | 1 | One photograph, full-bleed, filling the first screen. Name and one line in the bottom-left corner. No headline, no marquee, no blobs. |
 | 2 | Statement | `statement` | 1 | The illustrated headshot (small, 96 px, no caption) beside two short plain sentences and a *now* line. |
 | 3 | Rolls | `rolls` | 2–4 | The gallery. Photographs grouped into rolls; each roll is a titled contact-sheet row. Click opens a lightbox. |
-| 4 | Music | `music` | 1 | Embedded player(s) if links are supplied; otherwise the Stage roll is promoted here with a link to where the music lives. |
+| 4 | Music | `music` | 1–2 | Three cover reels embedded from Instagram, then a drafts player for Ahnaf's own recordings. |
 | 5 | Contact | `contact` | 1 | Kept from today, copy trimmed. |
 
 Removed: aurora `CreativeBackground`, `Marquee`, `CreativeCrafts`,
@@ -139,16 +139,65 @@ Hand-written, ~120 lines, no dependency.
 
 ## Music
 
-Two cases, decided by `creative.music.embeds.length`:
+Ahnaf's music lives on Instagram (`@labib.onrecord`). The section has
+two parts, both real content.
 
-1. **Embeds supplied** (SoundCloud / Bandcamp / Spotify / YouTube URLs in
-   `content.ts`): render each as a lazy `<iframe>` with `title`, 16:9 or
-   the provider's compact height, inside the `.wrap`. Section heading
-   `Music`, one plain line under it from `content.ts`.
-2. **No embeds yet**: the section still exists and is not empty: it
-   shows the Stage roll (R3 moves here out of Rolls) with heading `Music`
-   and a mono link `Listen on Instagram →`. When links are added later,
-   R3 moves back to Rolls automatically.
+### Covers
+
+Three Instagram reels, in `content.ts`:
+
+```ts
+export interface Cover { title: string; artist: string; reel: string } // reel = Instagram reel id
+covers: [
+  { title: "Lover, You Should've Come Over", artist: "Jeff Buckley", reel: "DfWL_P3x3Cs" },
+  { title: "Tuyo", artist: "Rodrigo Amarante", reel: "Des9G6mOc-7" },
+  { title: "Love Ain't Always So Good", artist: "", reel: "DefxSxpNfCp" },
+]
+```
+
+(Artist names are my best guess from the titles; the user corrects them
+in `content.ts`.)
+
+- Rendered as a 3-column row (1 column below 640). Each cover is an
+  `<iframe src="https://www.instagram.com/reel/<id>/embed/" loading=
+  "lazy" title="<title> — cover by Ahnaf Labib">` at Instagram's
+  portrait aspect (9:16 within a max height of 70vh), no border radius,
+  no card.
+- The iframe is mounted only when the section scrolls near the viewport
+  (IntersectionObserver, 400 px margin) so the three Instagram bundles
+  don't load with the page.
+- Under each iframe one mono line: `<title> · <artist>` as a link to the
+  reel. If the iframe fails to load (Instagram blocked, no network) the
+  link is what remains, so the section never shows an empty frame.
+- Heading `Music`, one plain line: `Covers, recorded in one take, and
+  drafts of my own.` A mono link `@labib.onrecord →` to the music page.
+
+### Drafts
+
+Ahnaf's own works in progress, as audio files he supplies.
+
+```ts
+export interface Draft { title: string; src: string; month: string; duration: number }
+drafts: Draft[]   // src = "/audio/<slug>.mp3", duration in seconds
+```
+
+- Files are committed to `public/audio/` as MP3 (128 kbps, mono or
+  stereo as supplied). A one-off step in `scripts/prepare-gallery.mjs`
+  (extended to `prepare-media.mjs`) transcodes with `ffmpeg` if needed
+  and prints each draft's duration for `content.ts`.
+- A hand-written player, no dependency: a list of rows, each `title ·
+  month` in Fraunces/mono, a play/pause button, a progress bar that is
+  a real `<input type="range">` for keyboard scrubbing, and elapsed /
+  total in mono. One `<audio>` element per row, `preload="metadata"`.
+  Playing one row pauses the others. Space toggles the focused row.
+- The sub-heading reads `Drafts` with one mono line: `unfinished, on
+  purpose`.
+- If `drafts` is empty the sub-section is not rendered at all.
+
+### Stage roll
+
+R3 (Stage) stays in Rolls; it is not moved here, since Music now has
+its own real content.
 
 ## Contact
 
@@ -180,7 +229,8 @@ src/components/creative/
   CreativeStatement.tsx   rewritten
   CreativeRolls.tsx       new: rolls grid + frame labels
   Lightbox.tsx            new
-  CreativeMusic.tsx       new
+  CreativeMusic.tsx       new: covers row + drafts list
+  DraftPlayer.tsx         new: one audio row
   CreativeContact.tsx     trimmed copy
   (deleted) CreativeBackground.tsx, Marquee.tsx, CreativeCrafts.tsx,
             CreativeQuote.tsx, CreativeGallery.tsx
@@ -203,9 +253,10 @@ after the redesign); it is not modified.
 
 ## Testing
 
-- Unit (Vitest): roll/frame layout helper (which frame spans what), the
-  music-section case switch, lightbox index navigation across rolls
-  (pure function), `prepare-gallery` output shape.
+- Unit (Vitest): roll/frame layout helper (which frame spans what),
+  lightbox index navigation across rolls (pure function), the draft
+  player's "one playing at a time" reducer, time formatting,
+  `prepare-media` output shape.
 - Browser: screenshots at 1440, 1024, 768, 390 for every section; the
   taste-skill checker (`consistency.mjs`, `check.mjs`, `perf.mjs`) run
   against the built page with `--page service`, findings fixed or listed
@@ -213,7 +264,10 @@ after the redesign); it is not modified.
 
 ## Open items
 
-- The five photographs still needed as files: One Way in fog, porch,
-  560 SL, thin crescent (not used), daytime cupola (not used). Only the
-  first three affect the page; their slots are named above.
-- Music links. Until supplied, case 2 renders.
+- Three photographs still needed as files: One Way in fog, porch, 560 SL.
+  Their slots are named above; until they arrive the rolls render
+  without them (R1 has four frames, R2 has two).
+- Draft audio files. Until supplied, the Drafts sub-section is not
+  rendered.
+- Design work is not a section: Ahnaf's design work is his web projects,
+  which the Dev persona already shows.
