@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import type { SkinName } from "./commands";
 import type { Mood } from "./useTerminal";
 import { AHNAF, CAT, CAT_SHADES, PALETTE, toRects, type AhnafPose, type CatPose, type Sprite } from "./sprites";
-import { holdWander, initialWander, noticeWander, stepWander, type WanderBounds, type WanderState } from "./wander";
+import { holdWander, initialWander, noticeWander, stepWander, type WanderState } from "./wander";
+import { boundsOf, catBox, type Size } from "./layout";
 
 const BLINK_EVERY_MS: readonly [number, number] = [3000, 4000];
 const BLINK_MS = 150;
@@ -12,16 +13,11 @@ const PURR_MS = 2000;
 const NOTICE_CHANCE = 0.6; // how often the cat reacts when the visitor starts typing
 const SETTLE_MS = 80; // each leg's transition finishes this much before the leg ends
 const HOP_CROUCH_MS = CAT.default.hop.ms; // the crouch frame shows before the cat leaves the ground
-// Rendered sizes, in px (Tailwind h-12 / h-8 on 32- and 24-row grids).
-const AHNAF_H = 48;
-const AHNAF_W = (AHNAF.default.idle.w / AHNAF.default.idle.h) * AHNAF_H;
-const AHNAF_RIGHT = 24; // right-6
-const CAT_H = 32;
-const CAT_W = (CAT.default.sit.w / CAT.default.sit.h) * CAT_H;
-/** On the bottom edge the cat's clear top rows tuck into the log's bottom padding. */
-const BOTTOM_TUCK = 8;
 // Ambient-motion timer keys; purr is state, so it is not among them.
-const AMBIENT = ["blink", "blink-end", "turn", "turn-end", "wander", "ahnaf-frame", "cat-frame"];
+const AMBIENT = ["breath", "blink", "blink-end", "turn", "turn-end", "wander", "ahnaf-frame", "cat-frame"];
+const BREATH_MS = AHNAF.default.idle.ms;
+/** Poses whose two frames are the breath: they follow one shared breathing clock, so switching between them never pops. */
+const BREATHING: ReadonlySet<AhnafPose> = new Set(["idle", "blink", "turn", "shades"]);
 const PHASE_POSE: Record<WanderState["phase"], CatPose> = {
   walk: "walk",
   hop: "hop",
@@ -94,47 +90,22 @@ function createTimers() {
 
 type Timers = ReturnType<typeof createTimers>;
 
-/** The frame a sprite is on: it restarts at 0 whenever the sprite changes and only runs when `run`. */
-function useFrame(timers: Timers, key: string, sprite: Sprite, run: boolean): number {
-  const [state, setState] = useState({ sprite, frame: 0 });
+/** The frame a sprite is on: it restarts at 0 whenever the sprite (or `restart`) changes and only runs when `run`. */
+function useFrame(timers: Timers, key: string, sprite: Sprite, run: boolean, restart: unknown = null): number {
+  const [state, setState] = useState({ sprite, restart, frame: 0 });
   useEffect(() => {
-    setState({ sprite, frame: 0 });
+    setState({ sprite, restart, frame: 0 });
     const n = sprite.frames.length;
     if (!run || n < 2 || !sprite.ms) return;
     let frame = 0;
     timers.every(key, sprite.ms, () => {
       frame = sprite.loop ? (frame + 1) % n : frame + 1;
       if (!sprite.loop && frame >= n - 1) timers.cancel(key); // a one-shot holds its last frame
-      setState({ sprite, frame });
+      setState({ sprite, restart, frame });
     });
     return () => timers.cancel(key);
-  }, [timers, key, sprite, run]);
-  return state.sprite === sprite ? state.frame : 0;
-}
-
-interface Size {
-  w: number;
-  h: number;
-}
-
-/** The right-hand corners line up with the right edge's column, so hops go straight down and up. */
-const cornerX = (w: number) => Math.max(0, w - CAT_W / 2);
-const boundsOf = ({ w, h }: Size): WanderBounds => ({
-  topWidth: cornerX(w),
-  rightHeight: h + CAT_H - BOTTOM_TUCK,
-  bottomWidth: cornerX(w),
-});
-
-/** Where the cat waits when it is not roaming: on the title bar, just left of Ahnaf. */
-const homeX = ({ w }: Size) => Math.max(0, w - AHNAF_RIGHT - AHNAF_W - 4 - CAT_W);
-
-/** Card-relative px for a point along an edge (see wander.ts for the tracks). */
-function catXY(s: Pick<WanderState, "edge" | "x">, size: Size): [number, number] {
-  const b = boundsOf(size);
-  if (s.edge === "top") return [Math.min(s.x, b.topWidth), -CAT_H];
-  if (s.edge === "bottom") return [Math.min(s.x, b.bottomWidth), size.h - BOTTOM_TUCK];
-  // straddling the right border: half outside the card, half over the log's right padding
-  return [cornerX(size.w), -CAT_H + Math.min(s.x, b.rightHeight)];
+  }, [timers, key, sprite, run, restart]);
+  return state.sprite === sprite && state.restart === restart ? state.frame : 0;
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -179,6 +150,7 @@ export function Companions(props: {
 }) {
   const { mood, skin, shades, active, petTick, reduceMotion } = props;
   const [timers] = useState(createTimers);
+  const [breath, setBreath] = useState(0);
   const [blink, setBlink] = useState(false);
   const [turn, setTurn] = useState(false);
   const [wander, setWander] = useState<WanderState | null>(null);
@@ -230,6 +202,7 @@ export function Companions(props: {
         });
       arm();
     };
+    timers.every("breath", BREATH_MS, () => setBreath((b) => 1 - b));
     occasionally("blink", BLINK_EVERY_MS, BLINK_MS, setBlink);
     occasionally("turn", TURN_EVERY_MS, TURN_MS, setTurn);
 
@@ -241,13 +214,14 @@ export function Companions(props: {
       );
     };
     commitRef.current = commit;
-    commit(initialWander(timers.now(), boundsOf(sizeRef.current), Math.random, homeX(sizeRef.current)));
+    commit(initialWander(timers.now(), boundsOf(sizeRef.current), Math.random, 0)); // starts just right of Ahnaf
 
     return () => {
       for (const key of AMBIENT) timers.cancel(key);
       wanderRef.current = null;
       commitRef.current = null;
       setWander(null);
+      setBreath(0);
       setBlink(false);
       setTurn(false);
     };
@@ -292,16 +266,19 @@ export function Companions(props: {
           : "idle"
         : mood;
   const ahnafSprite = AHNAF[skin][ahnafPose];
-  const ahnafFrame = useFrame(timers, "ahnaf-frame", ahnafSprite, !reduceMotion);
+  const breathes = BREATHING.has(ahnafPose);
+  const poseFrame = useFrame(timers, "ahnaf-frame", ahnafSprite, !reduceMotion && !breathes);
+  const ahnafFrame = reduceMotion ? 0 : breathes ? breath : poseFrame;
 
   const roam = reduceMotion ? null : wander;
   const phase = roam?.phase ?? "sit";
   const moving = phase === "walk" || phase === "hop";
   const catPose: CatPose = moving ? PHASE_POSE[phase] : shades ? "shades" : purr ? "purr" : PHASE_POSE[phase];
   const catSprite = (shades ? CAT_SHADES : CAT)[skin][catPose];
-  const catFrame = useFrame(timers, "cat-frame", catSprite, !reduceMotion);
+  // every hop step crouches again: a new step restarts the hop's frames
+  const catFrame = useFrame(timers, "cat-frame", catSprite, !reduceMotion, phase === "hop" ? roam?.since : null);
 
-  const [x, y] = catXY(roam ?? { edge: "top", x: homeX(size) }, size);
+  const { x, y } = catBox(roam ?? { edge: "top", x: 0 }, size);
   const leg = roam ? Math.round(roam.until - roam.since) : 0;
   const catBoxStyle: CSSProperties = {
     transform: `translate(${round(x)}px, ${round(y)}px)`,
@@ -323,7 +300,7 @@ export function Companions(props: {
         sprite={ahnafSprite}
         pose={ahnafPose}
         frame={ahnafFrame}
-        className="absolute right-6 bottom-full h-12 w-auto translate-y-2"
+        className="absolute left-4 bottom-full h-12 w-auto translate-y-2"
       />
       <div className="absolute top-0 left-0" style={catBoxStyle}>
         <PixelSprite

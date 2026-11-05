@@ -44,12 +44,13 @@ export interface WanderState {
 
 export const WALK_MS: readonly [number, number] = [1000, 3000];
 export const WALK_PX_PER_S: readonly [number, number] = [20, 30];
-export const REST_MS: readonly [number, number] = [1000, 2000];
+export const REST_MS: readonly [number, number] = [2500, 6000]; // long sits, so it rests more than it walks between naps
+export const FIRST_SIT_MS: readonly [number, number] = [1000, 2000];
 export const LOOK_MS = 1000;
 export const YAWN_MS = 1200;
 export const SLEEP_MS: readonly [number, number] = [10_000, 15_000];
-/** Nap start to next nap start, before the ≤3 s it may wait for a walk to end: 30–45 s overall. */
-export const NAP_GAP_MS: readonly [number, number] = [30_000, 42_000];
+/** Nap start to next nap start, before the ≤6 s it may wait for the current leg to end: 30–45 s overall. */
+export const NAP_GAP_MS: readonly [number, number] = [30_000, 39_000];
 export const HOP_STEP_MS = 400;
 const KEEP_HEADING = 0.7; // a new walk mostly carries on the same way
 const LOOK_CHANCE = 0.25; // a walk ends in a glance at the visitor, then carries on
@@ -83,7 +84,7 @@ export function initialWander(now: number, b: WanderBounds, rng: () => number, x
     from: home,
     facing: 1,
     since: now,
-    until: now + between(rng, REST_MS),
+    until: now + between(rng, FIRST_SIT_MS), // a short first pause, then off it goes
     sleepAt: now + between(rng, NAP_GAP_MS),
   };
 }

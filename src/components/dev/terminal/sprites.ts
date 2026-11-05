@@ -54,6 +54,8 @@ export function toRects(frame: string[], palette: Palette): { x: number; y: numb
  * recolor: swap chars everywhere (simultaneous, so { s: "f", f: "s" } works).
  * shift:   move rows [from, to) sideways by dx (vacated pixels go clear).
  * lower / lift: the whole figure n pixels down / up (clear rows fill in).
+ * outline: a 1-px bg line around every shape, so light fills stand apart from
+ *          the title bar and the card's border.
  */
 type Frame = string[];
 type Stamp = [layer: Frame, top: number, left: number];
@@ -87,8 +89,16 @@ function shift(frame: Frame, from: number, to: number, dx: number): Frame {
 const lower = (frame: Frame, n = 1): Frame => [...blank(frame[0].length, n), ...frame.slice(0, frame.length - n)];
 const lift = (frame: Frame, n = 1): Frame => [...frame.slice(n), ...blank(frame[0].length, n)];
 
+function outline(frame: Frame): Frame {
+  const at = (x: number, y: number) => frame[y]?.[x] ?? ".";
+  return frame.map((row, y) =>
+    [...row]
+      .map((c, x) => (c === "." && [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)].some((n) => n !== ".") ? "b" : c))
+      .join(""),
+  );
+}
+
 const anim = (ms: number, frames: Frame[], loop = true) => ({ ms, frames, loop });
-const still = (frame: Frame) => anim(0, [frame]);
 type Anim = ReturnType<typeof anim>;
 
 function toSprite({ ms, frames, loop }: Anim): Sprite {
@@ -105,43 +115,43 @@ function mapPoses<P extends string>(poses: Record<P, Anim>, fn: (frame: Frame, p
 }
 
 /* ── Ahnaf: 32×32 headshot, 1.5 px per pixel (48 px tall) ──────────────────
- * f ink-faint: hair, brows, goatee, hoodie   s ink-soft: skin, drawstrings
- * # ink: glasses, the shine on the swoop     b bg: pupils, mouth, hood shadow
- * a accent: the drawstring tips
+ * # ink: skin, drawstrings, the shine on the swoop   s ink-soft: hair, hoodie
+ * f ink-faint: brows, moustache, goatee              b bg: glasses, pupils, mouth,
+ * a accent: the drawstring tips                         hood shadow, the outline
  */
 const AHNAF_BASE: Frame = [
   "................................",
-  "............ffffffff............",
-  ".........ffffffffffffff.........",
-  "........ffff####fffffffff.......",
-  ".......ffffffff####fffffff......",
-  ".......fffffffffff####fffff.....",
-  ".......ffffffffffffff###ffff....",
-  ".......fffsssffffffffffffff.....",
-  ".......ffsssssssffffffffff......",
-  "........fsssssssssfffffff.......",
-  "........fssssssssssssfff........",
-  "........fsffffssssffffsf........",
-  "........ss####ssss####ss........",
-  "........##ssss####ssss##........",
-  "........f#sbbs#ss#sbbs#f........",
-  "........s#sbbs#ss#sbbs#s........",
-  "........ss####ssss####ss........",
-  ".........ssssssffssssss.........",
-  ".........ssssffffffssss.........",
-  "..........ssssbbbbssss..........",
-  "...........sssffffsss...........",
-  "............ssffffss............",
-  ".............ssffss.............",
-  ".............ssssss.............",
-  ".........ffbbssssssbbff.........",
-  "......ffffffbbssssbbffffff......",
-  "....ffffffffsbbbbbbsffffffff....",
-  "...fffffffffsfbbbbfsfffffffff...",
-  "...fffffffffsffbbffsfffffffff...",
-  "...fffffffffsffffffsfffffffff...",
-  "...fffffffffaffffffafffffffff...",
-  "...ffffffffffffffffffffffffff...",
+  "............ssssssss............",
+  ".........ssssssssssssss.........",
+  "........ssss####sssssssss.......",
+  ".......ssssssss####sssssss......",
+  ".......sssssssssss####sssss.....",
+  ".......ssssssssssssss###ssss....",
+  ".......sss###ssssssssssssss.....",
+  ".......ss#######ssssssssss......",
+  "........s#########sssssss.......",
+  "........s############sss........",
+  "........s#ffff####ffff#s........",
+  "........##bbbb####bbbb##........",
+  "........bb####bbbb####bb........",
+  "........sb#bb#b##b#bb#bs........",
+  "........#b#bb#b##b#bb#b#........",
+  "........##bbbb####bbbb##........",
+  ".........######ss######.........",
+  ".........####ffffff####.........",
+  "..........####bbbb####..........",
+  "...........###ffff###...........",
+  "............##ffff##............",
+  ".............##ff##.............",
+  ".............######.............",
+  ".........ssbb######bbss.........",
+  "......ssssssbb####bbssssss......",
+  "....ssssssss#bbbbbb#ssssssss....",
+  "...sssssssss#sbbbbs#sssssssss...",
+  "...sssssssss#ssbbss#sssssssss...",
+  "...sssssssss#ssssss#sssssssss...",
+  "...sssssssssassssssasssssssss...",
+  "...ssssssssssssssssssssssssss...",
 ];
 
 /* Face layers. EYES covers both lens interiors (rows 13–15; cols 10–13 and
@@ -150,28 +160,28 @@ type Eye = [string, string, string];
 const EYES = (l: Eye, r: Eye = l): Stamp => [[0, 1, 2].map((i) => `${l[i]}____${r[i]}`), 13, 10];
 const MOUTH = (bottom: string, top = "ffffff"): Stamp => [[top, bottom], 18, 13];
 
-const OPEN: Eye = ["ssss", "sbbs", "sbbs"];
-const CLOSED: Eye = ["ssss", "ssss", "bbbb"];
-const TO_PROMPT: Eye = ["ssss", "bbss", "bbss"]; // down-left, where the prompt is
-const SIDEWAYS: Eye = ["ssss", "ssbb", "ssbb"];
-const UP: Eye = ["ssbb", "ssbb", "ssss"];
-const GLAD: Eye = ["ssss", "sbbs", "bssb"];
+const OPEN: Eye = ["####", "#bb#", "#bb#"];
+const CLOSED: Eye = ["####", "bbbb", "####"];
+const TO_PROMPT: Eye = ["####", "#bb#", "bb##"]; // down-left, where the prompt is
+const SIDEWAYS: Eye = ["####", "##bb", "##bb"];
+const UP: Eye = ["##bb", "##bb", "####"];
+const GLAD: Eye = ["####", "#bb#", "b##b"];
 const DARK_LENSES: Eye = ["b#bb", "bbbb", "bbbb"];
 const SHADES_EYES = EYES(DARK_LENSES);
 
-const BLUSH: Stamp = [part("a..........a"), 17, 10];
+const BLUSH: Stamp = [part("s..........s"), 17, 10];
 const QUESTION = (top: number): Stamp => [part(".aaa.", "a...a", "...a.", "..a..", ".....", "..a.."), top, 26];
 const DOTS: Stamp[] = [
   [["a"], 3, 24],
   [["aa", "aa"], 1, 26],
   [["aaa", "aaa"], 0, 29],
 ];
-const HAND_ON_CHIN: Stamp = [part(".bbbb.", "bssssb", "bssssb", "bssssb", ".bssb.", ".bffb."), 19, 18];
+const HAND_ON_CHIN: Stamp = [part(".bbbb.", "b####b", "b####b", "b####b", ".b##b.", ".bssb."), 19, 18];
 const LAPTOP: Stamp = [
   part(
     "bbbbbbbbbbbbbbbbbb",
     "bssssssssssssssssb",
-    "bssssssssaassssssb",
+    "bssssssss##ssssssb",
     "bssssssssssssssssb",
     "bssssssssssssssssb",
   ),
@@ -179,8 +189,8 @@ const LAPTOP: Stamp = [
   7,
 ];
 const HANDS = (leftUp: boolean): Stamp[] => [
-  [part("sss", "sss"), leftUp ? 25 : 26, 9],
-  [part("sss", "sss"), leftUp ? 26 : 25, 20],
+  [part("###", "###"), leftUp ? 25 : 26, 9],
+  [part("###", "###"), leftUp ? 26 : 25, 20],
 ];
 
 const face = (...layers: Stamp[]) => stamps(AHNAF_BASE, ...layers);
@@ -192,14 +202,14 @@ const breathing = (frame: Frame) => anim(1200, [frame, lower(frame)]);
 
 const AHNAF_POSES: Record<AhnafPose, Anim> = {
   idle: breathing(face(EYES(OPEN))),
-  blink: still(face(EYES(CLOSED))),
+  blink: breathing(face(EYES(CLOSED))), // breathes too, so a blink never breaks the breath
   turn: breathing(turned(face(EYES(SIDEWAYS)))),
   // eyes on the prompt, hands busy on the laptop
-  typing: anim(180, [true, false].map((leftUp) => face(EYES(TO_PROMPT), MOUTH("ssbbss"), LAPTOP, ...HANDS(leftUp)))),
+  typing: anim(180, [true, false].map((leftUp) => face(EYES(TO_PROMPT), MOUTH("##bb##"), LAPTOP, ...HANDS(leftUp)))),
   // looks up while the thought dots fill in, one by one
   thinking: anim(
     400,
-    [1, 2, 3].map((n) => face(EYES(UP), MOUTH("sssbbs"), HAND_ON_CHIN, ...DOTS.slice(0, n))),
+    [1, 2, 3].map((n) => face(EYES(UP), MOUTH("###bb#"), HAND_ON_CHIN, ...DOTS.slice(0, n))),
   ),
   // a grin and a little bounce
   happy: (() => {
@@ -208,9 +218,9 @@ const AHNAF_POSES: Record<AhnafPose, Anim> = {
   })(),
   confused: anim(
     500,
-    [1, 0].map((top) => stamps(tilted(face(EYES(["sbbs", "sbbs", "ssss"], ["ssss", "sbbs", "sbbs"]), MOUTH("ssbbss"))), QUESTION(top))),
+    [1, 0].map((top) => stamps(tilted(face(EYES(["sbbs", "sbbs", "ssss"], ["ssss", "sbbs", "sbbs"]), MOUTH("##bb##"))), QUESTION(top))),
   ),
-  shades: breathing(face(SHADES_EYES, MOUTH("ssbbbb"))),
+  shades: breathing(face(SHADES_EYES, MOUTH("##bbbb"))),
 };
 
 /* Skins, stamped onto every frame (the swoop and face stay put between poses). */
@@ -233,7 +243,7 @@ const HOOD: Stamp = (() => {
 })();
 const BERET: Stamp = [part("........aa.......", "....aaaaaaaaa....", "..aaaaaaaaaaaaa..", ".aaaaaaaaaaaaaaa.", "aaaa............."), 0, 6];
 
-const ahnafSkin = (fn: (frame: Frame) => Frame) => mapPoses(AHNAF_POSES, (frame) => fn(frame));
+const ahnafSkin = (fn: (frame: Frame) => Frame) => mapPoses(AHNAF_POSES, (frame) => outline(fn(frame)));
 
 export const AHNAF: Record<SkinName, Record<AhnafPose, Sprite>> = {
   default: ahnafSkin((f) => f),
@@ -243,48 +253,50 @@ export const AHNAF: Record<SkinName, Record<AhnafPose, Sprite>> = {
 };
 
 /* ── Cat: 24×24, faces right, 1.33 px per pixel (32 px tall) ──────────────
- * f ink-faint: fur   s ink-soft: belly, muzzle, inner ears, socks
- * # ink: nose        a accent: eyes (and hearts, z's)      b bg: dark gaps
+ * s ink-soft: fur    # ink: belly, muzzle, socks    f ink-faint: inner ears, nose
+ * b bg: eyes, gaps, the outline     a accent: the collar (and hearts, z's)
  * Every frame is a body with one of two heads stamped where the pose holds it.
  */
 const HEAD_FRONT: Frame = part(
-  "f........f",
-  "ff......ff",
-  "fsf....fsf",
-  "ffffffffff",
-  "ffaffffaff",
-  "ffaffffaff",
-  "fffs##sfff",
-  ".ffssssff.",
-  "..ffssff..",
+  "s........s",
+  "ss......ss",
+  "sfs....sfs",
+  "ssssssssss",
+  "ssbssssbss",
+  "ssbssssbss",
+  "sss#ff#sss",
+  ".ss####ss.",
+  "..ss##ss..",
 );
 const HEAD_SIDE: Frame = part(
-  ".f....f...",
-  ".ff..fff..",
-  ".fffffsf..",
-  "fffffffff.",
-  "ffffffaff.",
-  "ffffffafff",
-  "ffffffffs#",
-  ".fffffssss",
-  "..ffffss..",
+  ".s....s...",
+  ".ss..sss..",
+  ".sssssfs..",
+  "sssssssss.",
+  "ssssssbss.",
+  "ssssssbsss",
+  "ssssssss#f",
+  ".sssss####",
+  "..ssss##..",
 );
 type HeadKind = "front" | "side";
 const HEADS: Record<HeadKind, Frame> = { front: HEAD_FRONT, side: HEAD_SIDE };
-/** Head layers, relative to the head's top-left. */
-const HEAD_FACE: Record<HeadKind, { eyes: [number, number][]; lenses: Stamp; beret: Stamp; mouth: [number, number] }> = {
-  front: { eyes: [[4, 2], [4, 7]], lenses: [["##########", "_###__###_"], 4, 0], beret: [part("..a..", ".aaa.", "aaaaa"), 0, 3], mouth: [7, 4] },
-  side: { eyes: [[4, 6]], lenses: [["_######", "____###"], 4, 3], beret: [part("..a..", ".aaa.", "aaaaa"), 0, 1], mouth: [7, 7] },
+/** Head layers, relative to the head's top-left; the collar is the cat's one accent. */
+const HEAD_FACE: Record<HeadKind, { eyes: [number, number][]; lenses: Stamp; beret: Stamp; mouth: [number, number]; collar: Stamp }> = {
+  front: { eyes: [[4, 2], [4, 7]], lenses: [["bbbbbbbbbb", "_bbb__bbb_"], 4, 0], beret: [part("..a..", ".aaa.", "aaaaa"), 0, 3], mouth: [7, 4], collar: [["aaaa"], 9, 3] },
+  side: { eyes: [[4, 6]], lenses: [["_bbbbbb", "____bbb"], 4, 3], beret: [part("..a..", ".aaa.", "aaaaa"), 0, 1], mouth: [7, 7], collar: [["aaa"], 8, 1] },
 };
 type HeadSpec = { kind: HeadKind; row: number; col: number; eyes?: "open" | "shut" | "glad"; mouth?: Frame };
 
 function head({ kind, row, col, eyes = "open", mouth }: HeadSpec): Stamp[] {
   const out: Stamp[] = [[HEADS[kind], row, col]];
   for (const [r, c] of HEAD_FACE[kind].eyes) {
-    if (eyes === "shut") out.push([["f", "a"], row + r, col + c]);
-    if (eyes === "glad") out.push([["f", "a"], row + r, col + c], [["a"], row + r, col + c + (kind === "front" && c > 4 ? 1 : -1)]);
+    if (eyes === "shut") out.push([["s", "b"], row + r, col + c]);
+    if (eyes === "glad") out.push([["b", "s"], row + r, col + c], [["s", "b"], row + r, col + c + (kind === "front" && c > 4 ? 1 : -1)]);
   }
   if (mouth) out.push([mouth, row + HEAD_FACE[kind].mouth[0], col + HEAD_FACE[kind].mouth[1] - 1]);
+  const [collar, r, c] = HEAD_FACE[kind].collar;
+  out.push([collar, row + r, col + c]);
   return out;
 }
 
@@ -297,26 +309,28 @@ const catFrame = (body: Frame, h: HeadSpec, ...extra: Stamp[]): CatFrame => ({ f
 /* Sitting: haunch, chest and two front legs with socks; the tail is stamped. */
 const SIT_BODY: Frame = [
   ...blank(24, 12),
-  ".............fffffff....",
-  "...........ffffssssff...",
-  ".........ffffffsssssf...",
-  "........fffffffsssssf...",
-  ".......fffffffffssssf...",
-  ".......fffffffffssssf...",
-  "......ffffffffffssssf...",
-  "......ffffffffbffbfff...",
-  "......ffffffffbffbfff...",
-  "......ffffffffbffbffff..",
-  "......ffffffffbffbffff..",
-  ".......ffffffffssbssff..",
+  ".............sssssss....",
+  "...........ssss####ss...",
+  ".........ssssss#####s...",
+  "........sssssss#####s...",
+  ".......sssssssss####s...",
+  ".......sssssssss####s...",
+  "......ssssssssss####s...",
+  "......ssssssssbssbsss...",
+  "......ssssssssbssbsss...",
+  "......ssssssssbssbssss..",
+  "......ssssssssbssbssss..",
+  ".......ssssssss##b##ss..",
 ];
 const SIT_HEAD: HeadSpec = { kind: "front", row: 4, col: 11 };
-const TAIL_DOWN: Stamp = [part("......", ".f.....", "f......", "f......", ".ffffff"), 19, 0];
-const TAIL_SWAY: Stamp = [part("f......", ".f.....", ".f.....", "f......", ".ffffff"), 19, 0];
-const TAIL_HIGH: Stamp = [part("ff......", "..f.....", "..f.....", "..f.....", "...f....", "...ff...", "....fff."), 11, 0];
-const TAIL_HOOK: Stamp = [part(".ff.....", "f.......", "f.......", ".f......", "..f.....", "...ff...", "....fff."), 11, 0];
+/** A long tail rising behind the haunch in an S, the tip swaying. */
+const TAIL_BODY = ["ss.....", ".s.....", ".s.....", ".ss....", "..s....", "..s....", "..ss...", "...ss..", "....sss"];
+const TAIL_DOWN: Stamp = [part("ss.....", "s......", "s......", ...TAIL_BODY), 12, 1];
+const TAIL_SWAY: Stamp = [part("..ss...", ".s.....", "s......", ...TAIL_BODY), 12, 1];
+const TAIL_HIGH: Stamp = [part("ss......", "..s.....", "..s.....", "..s.....", "...s....", "...ss...", "....sss."), 11, 1];
+const TAIL_HOOK: Stamp = [part(".ss.....", "s.......", "s.......", ".s......", "..s.....", "...ss...", "....sss."), 11, 1];
 /** The right ear flicks down: its tip goes, the inner ear shows lower. */
-const EAR_TWITCH: Stamp = [["_________.", "_______fsf"], 4, 11];
+const EAR_TWITCH: Stamp = [["_________.", "_______s#s"], 4, 11];
 const ZZ = (n: number): Stamp => [n ? part("aaa...", ".a....", "aaa.aa", "......", "....a.") : part("......", "aa....", "a.....", "aa....", "......"), 6, 16];
 
 const sitFrame = (tail: Stamp, h: Partial<HeadSpec> = {}, ...extra: Stamp[]) =>
@@ -325,69 +339,71 @@ const sitFrame = (tail: Stamp, h: Partial<HeadSpec> = {}, ...extra: Stamp[]) =>
 /* Standing / walking: a long body (rows 11–17); legs, tail and head stamped. */
 const WALK_BODY: Frame = [
   ...blank(24, 11),
-  "....fffffffffffff.......",
-  "...fffffffffffffff......",
-  "..ffffffffffffffff......",
-  "..ffffffffffffffff......",
-  "..ffffffffffffffff......",
-  "...fffsssssssssff.......",
-  "....ffssssssssff........",
+  "....sssssssssssss.......",
+  "...sssssssssssssss......",
+  "..ssssssssssssssss......",
+  "..ssssssssssssssss......",
+  "..ssssssssssssssss......",
+  "...sss#########ss.......",
+  "....ss########ss........",
   ...blank(24, 6),
 ];
 /** A leg from `top` to the ground: 3 rows at `col`, the rest at `col + dx`, a sock at the bottom. */
 function leg(col: number, dx: number, top = 18, bottom = 23): Stamp {
   const n = bottom - top + 1;
-  return [Array.from({ length: n }, (_, i) => "_".repeat(i < 3 ? col : col + dx) + (i === n - 1 ? "ss" : "ff")), top, 0];
+  return [Array.from({ length: n }, (_, i) => "_".repeat(i < 3 ? col : col + dx) + (i === n - 1 ? "##" : "ss")), top, 0];
 }
-const TAIL_UP_A: Stamp = [part("f...", "ff..", ".f..", ".f..", ".ff.", "..f.", "..ff"), 5, 0];
-const TAIL_UP_B: Stamp = [part(".f..", "ff..", "f...", "f...", "ff..", ".ff.", "..ff"), 5, 0];
+const TAIL_UP_A: Stamp = [part("s...", "ss..", ".s..", ".s..", ".ss.", "..s.", "..ss"), 5, 1];
+const TAIL_UP_B: Stamp = [part(".s..", "ss..", "s...", "s...", "ss..", ".ss.", "..ss"), 5, 1];
 
 const walkFrame = (legs: [number, number][], tail: Stamp, bob: 0 | 1, headKind: HeadKind = "side") => {
   const body = bob ? lower(WALK_BODY) : WALK_BODY;
-  return catFrame(stamps(body, tail, ...legs.map(([c, dx]) => leg(c, dx))), { kind: headKind, row: 5 + bob, col: 14 });
+  return catFrame(stamps(body, tail, ...legs.map(([c, dx]) => leg(c, dx))), { kind: headKind, row: 5 + bob, col: 13 });
 };
 
 /* Stretch: rump up and front paws reaching forward along the ground. */
 const STRETCH_BODY: Frame = [
   ...blank(24, 9),
-  "..ffffff................",
-  "..fffffffff.............",
-  "..ffffffffffff..........",
-  "..ffffffffffffffff......",
-  "..ffffsssssssfffff......",
-  "..ff.ff..sssssffff......",
-  "..ff.ff.....fffffff.....",
-  "..ff.ff.......ffffff....",
-  "..ff.ff.................",
-  "..ff.ff.................",
-  "..ff.ff.................",
-  "..ff.ff.................",
-  "..ff.ff.....ffffffffff..",
-  "..ss.ss.....ffffffffss..",
+  "..ssssss................",
+  "..sssssssss.............",
+  "..ssssssssssss..........",
+  "..ssssssssssssssss......",
+  "..ssss#######sssss......",
+  "..ss.ss..#####ssss......",
+  "..ss.ss.....sssssss.....",
+  "..ss.ss.......ssssss....",
+  "..ss.ss.................",
+  "..ss.ss.................",
+  "..ss.ss.................",
+  "..ss.ss.................",
+  "..ss.ss.....ssssssssss..",
+  "..##.##.....ssssssss##..",
   ...blank(24, 1),
 ].slice(0, 24);
-const TAIL_STRETCH_A: Stamp = [part("f...", "f...", "ff..", ".f.."), 5, 2];
-const TAIL_STRETCH_B: Stamp = [part("..f.", ".f..", "ff..", ".f.."), 5, 2];
+const TAIL_STRETCH_A: Stamp = [part("s...", "s...", "ss..", ".s.."), 5, 2];
+const TAIL_STRETCH_B: Stamp = [part("..s.", ".s..", "ss..", ".s.."), 5, 2];
 
 /* Sleeping: a loaf, head down on the paws; it breathes. */
 const SLEEP_BODY: Frame = [
   ...blank(24, 13),
-  ".....ffffffffff.........",
-  "...ffffffffffffff.......",
-  "..ffffffffffffffff......",
-  ".ffffffffffffffffff.....",
-  ".ffffffffffffffffff.....",
-  ".ffffffffffffffffff.....",
-  ".ffffffffffffffffff.....",
-  ".ffffffffffffffffff.....",
-  ".ffffffffffffffffff.....",
-  "..ffffffffffffffffffff..",
-  "...sss..........ss......",
+  ".....ssssssssss.........",
+  "...ssssssssssssss.......",
+  "..ssssssssssssssss......",
+  ".ssssssssssssssssss.....",
+  ".ssssssssssssssssss.....",
+  ".ssssssssssssssssss.....",
+  ".ssssssssssssssssss.....",
+  ".ssssssssssssssssss.....",
+  ".ssssssssssssssssss.....",
+  "..ssssssssssssssssssss..",
+  "...###..........##......",
 ];
+/** The tail arches up from the rump and rests along the back; it rises with the breath. */
+const TAIL_SLEEP = (up: number): Stamp => [part("..sss....", ".s...s...", "s.....s..", "s........", "s........"), 10 - up, 1];
 const SLEEP_HEAD: HeadSpec = { kind: "front", row: 14, col: 13, eyes: "shut" };
 const HEART = (top: number, left: number): Stamp => [part(".a.a.", "aaaaa", ".aaa.", "..a.."), top, left];
 const SMALL_HEART = (top: number, left: number): Stamp => [part("a.a", ".a."), top, left];
-const PAW = (row: number): Stamp => [["ss", "ss"], row, 20];
+const PAW = (row: number): Stamp => [["##", "##"], row, 20];
 const NO_RIGHT_LEG: Stamp = [Array.from({ length: 5 }, () => ".."), 19, 18];
 
 const CAT_POSES: Record<CatPose, { ms: number; loop?: boolean; frames: CatFrame[] }> = {
@@ -417,7 +433,7 @@ const CAT_POSES: Record<CatPose, { ms: number; loop?: boolean; frames: CatFrame[
     ms: 500,
     frames: [
       catFrame(stamps(STRETCH_BODY, TAIL_STRETCH_A), { kind: "front", row: 12, col: 13, eyes: "shut" }),
-      catFrame(stamps(shift(STRETCH_BODY, 21, 23, 1), TAIL_STRETCH_B), { kind: "front", row: 13, col: 14, eyes: "shut" }),
+      catFrame(stamps(shift(STRETCH_BODY, 21, 23, 1), TAIL_STRETCH_B), { kind: "front", row: 13, col: 13, eyes: "shut" }),
     ],
   },
   // waking: a small yawn, then a wide one
@@ -433,8 +449,8 @@ const CAT_POSES: Record<CatPose, { ms: number; loop?: boolean; frames: CatFrame[
   sleep: {
     ms: 1000,
     frames: [
-      catFrame(SLEEP_BODY, SLEEP_HEAD, ZZ(0)),
-      catFrame(stamps(SLEEP_BODY, [part(".....ffffffffff."), 12, 0], [part("...fffffffffffffff"), 13, 0]), SLEEP_HEAD, ZZ(1)),
+      catFrame(SLEEP_BODY, SLEEP_HEAD, TAIL_SLEEP(0), ZZ(0)),
+      catFrame(stamps(SLEEP_BODY, [part(".....ssssssssss."), 12, 0], [part("...sssssssssssssss"), 13, 0]), SLEEP_HEAD, TAIL_SLEEP(1), ZZ(1)),
     ],
   },
   // stopped mid-walk, looking at the visitor
@@ -453,10 +469,10 @@ const CAT_POSES: Record<CatPose, { ms: number; loop?: boolean; frames: CatFrame[
     ms: 120,
     loop: false,
     frames: [
-      catFrame(stamps(lower(WALK_BODY, 3), TAIL_UP_B, leg(3, 1, 21), leg(6, 1, 21), leg(13, 1, 21), leg(15, 1, 21)), { kind: "side", row: 9, col: 14 }),
+      catFrame(stamps(lower(WALK_BODY, 3), TAIL_UP_B, leg(3, 1, 21), leg(6, 1, 21), leg(13, 1, 21), leg(15, 1, 21)), { kind: "side", row: 9, col: 13 }),
       catFrame(
-        stamps(lift(WALK_BODY, 2), [part("ff....", ".fff..", "...fff"), 8, 0], leg(3, -2, 16, 20), leg(6, -2, 16, 20), leg(13, 2, 16, 20), leg(15, 2, 16, 20)),
-        { kind: "side", row: 3, col: 14 },
+        stamps(lift(WALK_BODY, 2), [part("ss....", ".sss..", "...sss"), 8, 1], leg(3, -2, 16, 20), leg(6, -2, 16, 20), leg(13, 2, 16, 20), leg(15, 2, 16, 20)),
+        { kind: "side", row: 3, col: 13 },
       ),
     ],
   },
@@ -491,7 +507,7 @@ function catSkin(fn: (frame: Frame, h: HeadSpec) => Frame, lenses: boolean): Rec
         ms,
         frames.map(({ frame, head: h }) => {
           const skinned = fn(frame, h);
-          return lenses || pose === "shades" ? catLenses(skinned, h) : skinned;
+          return outline(lenses || pose === "shades" ? catLenses(skinned, h) : skinned);
         }),
         loop,
       ),

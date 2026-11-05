@@ -178,7 +178,7 @@ describe("Companions", () => {
 
   it("the walk cycles four frames every 150 ms and the cat faces its direction", () => {
     const t = setup();
-    for (let i = 0; i < 300 && t.cat() !== "walk"; i++) advance(10);
+    for (let i = 0; i < 1000 && t.cat() !== "walk"; i++) advance(10);
     expect(t.cat()).toBe("walk");
     const seen = [t.catSvg().getAttribute("data-frame")];
     for (let i = 0; i < 4; i++) {
@@ -310,6 +310,30 @@ describe("Companions", () => {
     for (const p of ["sit", "walk", "sleep", "yawn", "look", "hop"]) expect(poses, p).toContain(p);
   }, 30_000);
 
+  it("every hop step starts with a crouch", () => {
+    let seed = 7;
+    vi.spyOn(Math, "random").mockImplementation(() => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    });
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
+    const t = setup();
+    for (let i = 0; i < 2000 && t.cat() !== "hop"; i++) advance(100);
+    expect(t.cat()).toBe("hop");
+    let steps = 0;
+    let last = "";
+    for (let i = 0; i < 100 && t.cat() === "hop"; i++) {
+      const transform = t.catBox().style.transform;
+      if (transform !== last) {
+        steps++;
+        expect(t.catSvg().getAttribute("data-frame"), `step ${steps}`).toBe("0"); // crouched
+        last = transform;
+      }
+      advance(20);
+    }
+    expect(steps).toBeGreaterThanOrEqual(2);
+  }, 30_000);
+
   it("when the visitor starts typing, a napping cat wakes with a yawn", () => {
     const t = setup({ active: true });
     for (let i = 0; i < 700 && t.cat() !== "sleep"; i++) advance(100);
@@ -328,12 +352,25 @@ describe("Companions", () => {
     expect(t.catSvg().innerHTML).not.toBe(cat);
   });
 
-  it("re-measures the card on resize", () => {
-    const t = setup({ reduceMotion: true });
-    const wide = t.catBox().style.transform;
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(358);
+  it("re-measures the card on resize: a cat far along the top track is pulled in to the new corner", () => {
+    const t = setup();
+    const x = () => Number(/translate\((-?[\d.]+)px/.exec(t.catBox().style.transform)![1]);
+    for (let i = 0; i < 600 && !(x() > 120 && t.cat() !== "walk" && t.cat() !== "hop"); i++) advance(100);
+    expect(x()).toBeGreaterThan(120);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(120);
     act(() => void window.dispatchEvent(new Event("resize")));
-    expect(t.catBox().style.transform).not.toBe(wide);
+    expect(x()).toBeLessThanOrEqual(120 - 16);
+  });
+
+  it("Ahnaf keeps breathing through a blink: the breath frame does not reset", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5); // blink at 3500 ms
+    const t = setup();
+    advance(3600); // breath toggled at 1200, 2400, 3600 → frame 1; blinking since 3500
+    expect(t.ahnaf()).toBe("blink");
+    expect(t.ahnafFrame()).toBe("1");
+    advance(100); // blink over at 3650
+    expect(t.ahnaf()).toBe("idle");
+    expect(t.ahnafFrame()).toBe("1");
   });
 
   it("clears every timer and listener on unmount", () => {

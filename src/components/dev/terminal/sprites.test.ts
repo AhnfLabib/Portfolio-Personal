@@ -29,6 +29,30 @@ describe("sprites", () => {
     }
   });
 
+  it("every sprite has a bg outline: no fill touches a clear pixel", () => {
+    for (const { name, sprite } of allSprites()) {
+      for (const f of sprite.frames) {
+        f.forEach((row, y) =>
+          [...row].forEach((c, x) => {
+            if (c === "." || c === "b") return;
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+              const n = f[y + dy]?.[x + dx];
+              if (n !== undefined) expect(n, `${name} (${x},${y})`).not.toBe(".");
+            }
+          }),
+        );
+      }
+    }
+  });
+
+  it("main fills are light: ink and ink-soft outnumber ink-faint", () => {
+    for (const [who, s] of [["ahnaf", AHNAF.default.idle], ["cat", CAT.default.sit]] as const) {
+      const t = text(s);
+      const count = (c: string) => t.split(c).length - 1;
+      expect(count("#") + count("s"), who).toBeGreaterThan(count("f") * 5);
+    }
+  });
+
   it("every frame is rectangular and within bounds; Ahnaf is 32 rows, the cat 24", () => {
     for (const { name, sprite: s, maxW, maxH } of allSprites()) {
       expect(s.w, name).toBeLessThanOrEqual(maxW);
@@ -71,7 +95,7 @@ describe("sprites", () => {
     const frames = (p: AhnafPose) => [a[p].frames.length, a[p].ms];
     expect(frames("idle")).toEqual([2, 1200]);
     expect(a.idle.frames[1]).toEqual([".".repeat(32), ...a.idle.frames[0].slice(0, -1)]); // a 1-px breath
-    expect(frames("blink")).toEqual([1, 0]);
+    expect(frames("blink")).toEqual([2, 1200]); // a blink keeps breathing
     expect(frames("turn")).toEqual([2, 1200]);
     expect(frames("typing")[0]).toBe(2);
     expect(frames("thinking")[0]).toBe(3);
@@ -80,16 +104,16 @@ describe("sprites", () => {
     expect(accents[0]).toBeLessThan(accents[1]);
     expect(accents[1]).toBeLessThan(accents[2]);
     expect(frames("happy")[0]).toBe(2);
-    expect(a.happy.frames[1]).toEqual([...a.happy.frames[0].slice(1), ".".repeat(32)]); // bounce
+    expect(a.happy.frames[1].slice(0, 30)).toEqual(a.happy.frames[0].slice(1, 31)); // bounce: up a pixel
     expect(frames("confused")[0]).toBe(2);
     expect(text(a.confused)).toContain("a");
   });
 
   it("Ahnaf keeps the hair swoop, round glasses, goatee and a hoodie with accent drawstrings", () => {
     const idle = AHNAF.default.idle.frames[0];
-    expect(idle.slice(1, 9).join("")).toMatch(/f{10,}/); // hair mass
+    expect(idle.slice(1, 9).join("")).toMatch(/s{10,}/); // hair mass
     expect(idle.slice(3, 7).join("")).toMatch(/#{3,}/); // the shine along the swoop
-    expect(idle[12]).toMatch(/#{4}s+#{4}/); // two round lenses
+    expect(idle[12]).toMatch(/b{4}#+b{4}/); // two round dark frames
     expect(idle.slice(20, 23).join("")).toMatch(/ff/); // goatee
     expect(idle[30]).toContain("a"); // drawstring tips
   });
@@ -132,7 +156,12 @@ describe("sprites", () => {
   it("shades: lenses on the shades pose and on every CAT_SHADES frame, never recoloured", () => {
     for (const skin of SKINS) {
       expect(CAT_SHADES[skin].shades).toEqual(CAT[skin].shades);
-      for (const pose of CAT_POSES) for (const f of CAT_SHADES[skin][pose].frames) expect(f.join("\n"), `${skin}/${pose}`).toMatch(/######/);
+      if (skin === "shades") continue; // already wears them everywhere
+      for (const pose of CAT_POSES.filter((p) => p !== "shades")) {
+        expect(CAT_SHADES[skin][pose].frames, `${skin}/${pose}`).not.toEqual(CAT[skin][pose].frames);
+      }
+      // the lenses are bg-dark whatever the skin does to the fur
+      expect(text(CAT_SHADES[skin].sit)).toMatch(/b{10}/);
     }
     expect(text(AHNAF.default.shades)).not.toEqual(text(AHNAF.default.idle));
   });

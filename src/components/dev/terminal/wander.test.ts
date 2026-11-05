@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   HOP_STEP_MS,
+  REST_MS,
   LOOK_MS,
   YAWN_MS,
   edgeLength,
@@ -80,7 +81,7 @@ describe("stepWander", () => {
     }
   });
 
-  it("walks for 1000–3000 ms, rests 1000–2000 ms, looks 1 s, naps 10–15 s and yawns 1.2 s", () => {
+  it("walks for 1000–3000 ms, rests 2500–6000 ms, looks 1 s, naps 10–15 s and yawns 1.2 s", () => {
     const rests = new Set<string>();
     for (const seed of SEEDS) {
       for (const s of simulate(300_000, seed).slice(1)) {
@@ -98,8 +99,8 @@ describe("stepWander", () => {
           expect(dur(s)).toBeCloseTo(YAWN_MS, 6);
         } else {
           rests.add(s.phase);
-          expect(dur(s)).toBeGreaterThanOrEqual(1000);
-          expect(dur(s)).toBeLessThanOrEqual(2000);
+          expect(dur(s)).toBeGreaterThanOrEqual(REST_MS[0]);
+          expect(dur(s)).toBeLessThanOrEqual(REST_MS[1]);
         }
       }
     }
@@ -123,17 +124,20 @@ describe("stepWander", () => {
     expect(mean).toBeLessThan(30);
   });
 
-  it("rests more than it moves: roughly 60% resting, 40% walking or hopping", () => {
+  it("rests more than it moves: at most 45% moving between naps, 20–40% overall", () => {
     for (const seed of SEEDS) {
       let moving = 0;
+      let awake = 0;
       let total = 0;
       for (const s of simulate(600_000, seed).slice(1)) {
         total += dur(s);
+        if (s.phase !== "sleep" && s.phase !== "yawn") awake += dur(s);
         if (s.phase === "walk" || s.phase === "hop") moving += dur(s);
       }
-      const share = moving / total;
-      expect(share, `seed ${seed}`).toBeGreaterThan(0.3);
-      expect(share, `seed ${seed}`).toBeLessThan(0.48);
+      expect(moving / awake, `seed ${seed} awake`).toBeGreaterThan(0.3);
+      expect(moving / awake, `seed ${seed} awake`).toBeLessThanOrEqual(0.45);
+      expect(moving / total, `seed ${seed} overall`).toBeGreaterThan(0.2);
+      expect(moving / total, `seed ${seed} overall`).toBeLessThan(0.4);
     }
   });
 
