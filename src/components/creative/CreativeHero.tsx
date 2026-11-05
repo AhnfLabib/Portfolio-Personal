@@ -18,8 +18,8 @@ export default function CreativeHero() {
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/60 to-transparent"
       />
-      <div className="absolute inset-x-0 bottom-0">
-        <div className="mx-auto flex max-w-6xl items-end justify-between gap-6 px-4 pb-8 sm:px-6">
+      <div className="absolute inset-x-0 bottom-0 px-4 sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-end justify-between gap-6 pb-8">
           <div>
             <h1 className="font-display text-2xl text-white">Ahnaf Labib</h1>
             <p className="mt-1 text-white/90">{line}</p>

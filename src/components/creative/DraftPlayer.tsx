@@ -90,7 +90,7 @@ export default function DraftPlayer({ draft, index, playing, onPlay, onPause, on
       </span>
       <audio
         ref={audioRef}
-        preload="metadata"
+        preload="none"
         src={draft.src}
         hidden
         onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime)}

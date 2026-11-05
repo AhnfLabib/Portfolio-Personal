@@ -71,12 +71,13 @@ describe("CreativeMusic", () => {
     expect(within(list).getAllByRole("listitem")).toHaveLength(music.covers.length);
   });
 
-  it("keeps each cover frame 9:16 under the 70vh cap by capping its width", () => {
+  it("keeps each cover frame 9:16 under the 70vh cap, left-aligned with its link line", () => {
     render(<CreativeMusic />);
     const list = screen.getAllByRole("list")[0];
     for (const item of within(list).getAllByRole("listitem")) {
       const frame = item.firstElementChild as HTMLElement;
-      expect(frame).toHaveClass("aspect-[9/16]", "mx-auto", "w-full", "max-w-[calc(70vh*9/16)]");
+      expect(frame).toHaveClass("aspect-[9/16]", "w-full", "max-w-[calc(70vh*9/16)]");
+      expect(frame).not.toHaveClass("mx-auto");
     }
   });
 

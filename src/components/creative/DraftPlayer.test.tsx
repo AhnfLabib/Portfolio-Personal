@@ -27,7 +27,7 @@ describe("DraftPlayer", () => {
     expect(screen.getByText("0:00 / 0:44")).toBeInTheDocument();
     const audio = container.querySelector("audio")!;
     expect(audio).toHaveAttribute("src", "/audio/fog.mp3");
-    expect(audio).toHaveAttribute("preload", "metadata");
+    expect(audio).toHaveAttribute("preload", "none");
     expect(container.textContent).not.toMatch(/·/);
   });
 

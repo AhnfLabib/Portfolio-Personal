@@ -20,9 +20,8 @@ export default function CreativeContact() {
       className="scroll-mt-24 px-4 py-24 text-center sm:px-6 sm:py-32"
     >
       <div className="mx-auto max-w-3xl">
-        <p className="mb-6 flex items-center justify-center gap-4 text-xs font-semibold uppercase tracking-[0.35em] text-ink-soft">
-          <span className="h-px w-10 bg-accent" aria-hidden="true" />
-          <span>Contact</span>
+        <p className="mb-6 text-xs font-semibold uppercase tracking-[0.35em] text-ink-soft">
+          Contact
         </p>
 
         <h2

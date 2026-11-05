@@ -258,3 +258,129 @@ These were not optimised in this task.
 
 The temporary `dist/artist.html` and `dist/.taste-skill/` were removed after the runs, and the preview server was stopped.
 No product code was changed.
+
+## Task 9 re-verification
+
+Date: 2026-11-05. Branch `artist-redesign`, Task 9 fixes on top of `b902c76`. The setup matched Task 8:
+`npm run build`, `npx vite preview --port 4174`, and a temporary `dist/artist.html` for the checker and
+Lighthouse runs, deleted afterwards. Raw outputs are in `.superpowers/sdd/2026-11-05-artist-page-redesign/task9-shots/`
+(git-ignored): `verify.json` (Playwright), `consistency.txt` plus `consistency/`, and `lighthouse-{1,2,3}.json`.
+The Playwright script is `task9-verify.cjs`.
+
+### What changed
+
+- **Contrast.** Only the creative token block in `src/index.css` changed. `src/theme.test.ts` parses
+  that block and asserts the ratios.
+
+  | Token | Before | After | Pair | Ratio |
+  |---|---|---|---|---|
+  | `--color-ink-faint` | `#95897a` | `#6b6253` | on `bg` `#f6f1e7` | 3.04 → **5.33** |
+  | `--color-accent` | `#dd4f26` | `#b9371a` | on `bg` | 3.57 → **5.15** |
+  | `--color-accent` | | | `accent-ink` `#fffcf5` on it | 3.93 → **5.65** |
+  | `--color-accent-soft` | `#f0663c` | `#d04a2a` | not used for text | (3.97 on `bg`) |
+
+- **Alignment.**
+  - Hero: the `px-4 sm:px-6` moved to the outer `absolute inset-x-0 bottom-0` wrapper.
+  - Covers: `mx-auto` was dropped on the frame, which keeps `max-w-[calc(70vh*9/16)]`.
+  - Contact eyebrow: the accent rule was removed.
+- **Performance.**
+  - Google Fonts load without blocking render: `media="print" onload` plus a `<noscript>` fallback, still with `display=swap`.
+  - `index.html` preloads the hero image (`fetchpriority="high"`).
+  - Each persona is now a `React.lazy` chunk inside `<Suspense>`, inside the existing fade.
+  - `DraftPlayer` uses `preload="none"`.
+- **Two follow-on fixes the lazy split required.** Both were found during this re-verification.
+  - **Navbar scroll-spy.** The spy ran once on mount, before the lazy sections existed. It found none and
+    never marked the current section, on either persona. The checker's `nav-current` changed from PASS to WARN.
+    `Navbar.tsx` now watches the DOM with a `MutationObserver` until the sections mount.
+    Test: `src/components/Navbar.test.tsx`.
+  - **Footer layout shift.** With `fallback={null}`, the footer painted at the bottom of the first screen and then
+    jumped down when the persona arrived. Lighthouse measured CLS 0.20. The fallback is now a screen-tall,
+    `aria-hidden` placeholder (`min-h-svh`), and CLS is back to 0. Test: `src/App.test.tsx`.
+
+### Alignment, measured with Playwright
+
+| Item | Width | Before (Task 8) | After |
+|---|---|---|---|
+| Hero `h1` left vs. section `.wrap` left | 1440 | 168 vs 144 (24 px in) | **144 vs 144** |
+| Hero CTA right vs. `.wrap` right | 1440 | 1272 vs 1296 (derived from the 24 px inset) | **1296 vs 1296** |
+| Hero `h1` left | 390 | 16 vs 16 | 16 vs 16 |
+| Cover frame x vs. its link line x | 1440 | 151 vs 144 (7 px) | **144/536/928 = 144/536/928** |
+| Cover frame x vs. its link line x | 390 | 13 px apart | **16 = 16** |
+| Contact eyebrow centre vs. page centre | 1440 | 748 vs 720 (28 px) | **720 vs 720** |
+| Contact eyebrow centre vs. page centre | 390 | flagged at every width in Task 8 | **195 vs 195** |
+
+### Accessibility quick pass (repeat of check 7)
+
+At 1440 and 390:
+- 1 `h1`.
+- 16/16 `img` have alt text.
+- 21/21 buttons are named.
+- 16/16 links are named.
+- The lightbox has `aria-modal="true"` and its buttons are "Close", "Previous frame" and "Next frame".
+
+There were no page errors. **PASS.**
+
+### Code split and the Dev persona
+
+- **Artist**, 1440 and 390: the page requests `index-*.js`, `CreativePortfolio-*.js` and `mail-*.js`.
+  No `DevPortfolio` chunk is requested. 0 `.mp3` requests on load, and `hero.jpg` is requested from the preload.
+- **Dev**, 1440 and 390: the hero `#home` renders at full height (900 and 844), with `h1` "Ahnaf Labib",
+  7 sections and the `#0a0d13` ground. No `CreativePortfolio` chunk is requested. In the screenshot the Dev hero is unchanged.
+- **Flip**: Artist to Dev through the contact link loads the Dev chunk on demand (0 → 1 request) and renders it.
+- **Nav scroll-spy** after the fix: `#music` is marked when scrolled into view on Artist, and `#projects` on Dev.
+- **Build**:
+  - Main chunk: 127.71 → 110.08 KiB gzip.
+  - `CreativePortfolio`: 4.71 KiB.
+  - `DevPortfolio`: 15.16 KiB.
+
+### consistency.mjs (same flags as check 8)
+
+Raw totals went from **171 FAIL / 29 WARN** to **148 FAIL / 27 WARN**. Each of the six real rows is gone:
+
+| # | Task 8 finding | After |
+|---|---|---|
+| R1 | `#95897a` on `#f6f1e7` 3.04:1 | gone: 0 rows mention `#95897a` or `#6b6253` |
+| R2 | `#dd4f26` on `#f6f1e7` 3.57:1 | gone: 0 rows mention `#dd4f26` or `#b9371a` |
+| R3 | `#fffcf5` on `#dd4f26` 3.93:1 ("Say hello") | gone |
+| R4 | hero off-grid 168 vs 144 | gone: `off-grid` PASS |
+| R5 | cover frame 7 / 13 px off its link line | gone: `off-grid` PASS |
+| R6 | contact eyebrow 28 px right of centre | gone: `centre-axis` PASS |
+
+**Real FAILs after: 0.**
+
+- The 10 `text-contrast` rows left are the two known false positives at each of the five widths:
+  - PersonaToggle "Artist" read against the page ground (1.1:1).
+  - `#5c554a` body text at 6.54:1 against the kit's 7:1 bar.
+- Two WARNs were dropped:
+  - `empty-visual` (2). The cause was not investigated.
+  - `off-grid` (1).
+- `nav-current` is PASS. It was WARN on the intermediate build, before the Navbar fix.
+- All other categories match Task 8's false-positive list.
+
+### Lighthouse mobile ×3 (13.6.0, same invocation as check 9)
+
+| Run | Performance | Accessibility | FCP | LCP | TBT | CLS | SI |
+|---|---|---|---|---|---|---|---|
+| 1 | 88 | 100 | 0.8 s | 3.9 s | 40 ms | 0 | 2.6 s |
+| 2 | 91 | 100 | 0.8 s | 3.5 s | 40 ms | 0 | 2.6 s |
+| 3 | 84 | 100 | 0.8 s | 4.5 s | 40 ms | 0 | 2.6 s |
+
+- Median **Performance 88**, up from 84 but still under the spec's ≥ 90 (one run reached 91).
+- Median **Accessibility 100**, up from 96. `color-contrast` passes.
+- FCP went from 1.5 s to 0.8 s.
+- These audits now pass or shrink:
+  - LCP request discovery: pass.
+  - Render-blocking: about 870 ms → about 120 ms. Only the app CSS remains.
+  - Unused JS: 61 → 45 KiB.
+
+Remaining levers, none applied because each changes the design or goes beyond this task:
+- **Hero render delay.** The LCP image arrives by about 50 ms (observed), but its element render delay is about 434 ms.
+  The persona `motion.div` starts at opacity 0 and fades over 350 ms, and an image at opacity 0 is not an LCP candidate.
+  Skipping the fade on first load (`initial={false}`), but keeping it on persona flips, is the largest remaining lever.
+  It is a design call.
+- **Image delivery**, about 378 KiB: roll frames, and the 800 px headshot shown at 96 px.
+- **Unused JS**, 45 KiB in the shared chunk, mostly framer-motion.
+
+For reference, the intermediate build had `fallback={null}` and no Navbar fix. It scored 88/85/87 with LCP 2.4–3.0 s
+but CLS 0.20; the lower simulated LCP came with the footer jump. Simulated LCP varies by about ±0.5 s between runs here,
+as it did in Task 8 (3.9–4.8 s).

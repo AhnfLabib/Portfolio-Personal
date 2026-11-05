@@ -1,11 +1,13 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { PersonaProvider, usePersona } from "./persona/PersonaContext";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import IntroLoader from "./components/IntroLoader";
-import DevPortfolio from "./components/dev/DevPortfolio";
-import CreativePortfolio from "./components/creative/CreativePortfolio";
+
+// Each persona is its own chunk: a visitor downloads only the side they see.
+const DevPortfolio = lazy(() => import("./components/dev/DevPortfolio"));
+const CreativePortfolio = lazy(() => import("./components/creative/CreativePortfolio"));
 
 function PortfolioShell() {
   const { persona } = usePersona();
@@ -35,7 +37,11 @@ function PortfolioShell() {
           transition={{ duration: 0.35, ease: "easeInOut" }}
           className="flex-1 pt-16"
         >
-          {persona === "dev" ? <DevPortfolio /> : <CreativePortfolio />}
+          {/* Hold a screen of space while the chunk loads so the footer
+              stays below the fold instead of jumping down (layout shift). */}
+          <Suspense fallback={<div data-persona-loading aria-hidden="true" className="min-h-svh" />}>
+            {persona === "dev" ? <DevPortfolio /> : <CreativePortfolio />}
+          </Suspense>
         </motion.div>
       </AnimatePresence>
       <Footer />
