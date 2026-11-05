@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { SkinName } from "./commands";
 import type { Mood } from "./useTerminal";
 import { AHNAF, CAT, CAT_SHADES, PALETTE, toRects, type AhnafPose, type CatPose, type Sprite } from "./sprites";
@@ -110,7 +110,7 @@ function useFrame(timers: Timers, key: string, sprite: Sprite, run: boolean, res
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
-function PixelSprite(props: {
+const PixelSprite = memo(function PixelSprite(props: {
   who: "ahnaf" | "cat";
   sprite: Sprite;
   pose: string;
@@ -138,7 +138,7 @@ function PixelSprite(props: {
       ))}
     </svg>
   );
-}
+});
 
 export function Companions(props: {
   mood: Mood;
@@ -278,6 +278,9 @@ export function Companions(props: {
   // every hop step crouches again: a new step restarts the hop's frames
   const catFrame = useFrame(timers, "cat-frame", catSprite, !reduceMotion, phase === "hop" ? roam?.since : null);
 
+  const facing = roam?.facing ?? 1;
+  // Stable per facing, so the memoized cat sprite re-renders only on pose/frame/facing changes.
+  const catSpriteStyle = useMemo<CSSProperties>(() => ({ transform: `scaleX(${facing})` }), [facing]);
   const { x, y } = catBox(roam ?? { edge: "top", x: 0 }, size);
   const leg = roam ? Math.round(roam.until - roam.since) : 0;
   const catBoxStyle: CSSProperties = {
@@ -311,7 +314,7 @@ export function Companions(props: {
           shades={shades}
           className="h-8 w-auto"
           // the sprite faces right; mirror it (instantly, outside the leg's transition) to face left
-          style={{ transform: `scaleX(${roam?.facing ?? 1})` }}
+          style={catSpriteStyle}
         />
       </div>
     </div>

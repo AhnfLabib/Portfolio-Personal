@@ -23,7 +23,8 @@ export interface TerminalApi {
   submit(): void;
   historyUp(): void;
   historyDown(): void;
-  tabComplete(): void;
+  /** Completes the input; true when it changed (so the caller may swallow Tab). */
+  tabComplete(): boolean;
   clear(): void;
   finishTyping(): void; // skip typewriter
 }
@@ -73,7 +74,10 @@ function reducer(s: Internal, a: Action): Internal {
     case "activate":
       return { ...s, active: true, showHint: s.lines === IDLE_LINES };
     case "deactivate":
-      return { ...s, active: false, showHint: false };
+      // After `clear`, leaving the card shows the idle lines again rather than a bare prompt.
+      return s.lines.length === 0
+        ? { ...s, active: false, showHint: false, lines: IDLE_LINES }
+        : { ...s, active: false, showHint: false };
     case "input":
       return { ...s, input: a.value };
     case "start": {
@@ -244,11 +248,16 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
     const runAsk = async (question: string) => {
       const gen = r.gen;
       const d = depsRef.current;
-      const result = await ask(question, {
-        fetch: d.fetch ?? ((...args: Parameters<typeof fetch>) => globalThis.fetch(...args)),
-        storage,
-        now: (d.now ?? (() => new Date()))(),
-      });
+      let result: AskResult;
+      try {
+        result = await ask(question, {
+          fetch: d.fetch ?? ((...args: Parameters<typeof fetch>) => globalThis.fetch(...args)),
+          storage,
+          now: (d.now ?? (() => new Date()))(),
+        });
+      } catch {
+        result = { ok: false, reason: "offline" };
+      }
       if (gen !== r.gen) return;
       dispatch({ type: "append", lines: [askLine(result)] });
       finish(result.ok);
@@ -266,7 +275,11 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
       setInput: (value) => dispatch({ type: "input", value }),
       historyUp: () => dispatch({ type: "historyUp" }),
       historyDown: () => dispatch({ type: "historyDown" }),
-      tabComplete: () => dispatch({ type: "tab" }),
+      tabComplete: () => {
+        const before = r.live.input;
+        dispatch({ type: "tab" });
+        return r.live.input !== before;
+      },
       clear,
       finishTyping: flushTyping,
       submit: () => {

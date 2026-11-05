@@ -1,12 +1,12 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import handler, { MODEL, RATE_LIMIT, callProvider, checkRate } from "./ask";
-import { buildSystemPrompt } from "./_context";
+import fn, { MODEL, RATE_LIMIT, callProvider, checkRate, handler } from "./ask.js";
+import { buildSystemPrompt } from "./_context.js";
 
-const post = (body: unknown, ip = "1.1.1.1") =>
+const post = (body: unknown, ip = "1.1.1.1", extra: Record<string, string> = {}) =>
   new Request("http://x/api/ask", {
     method: "POST",
-    headers: { "content-type": "application/json", "x-forwarded-for": ip },
+    headers: { "content-type": "application/json", "x-forwarded-for": ip, ...extra },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 
@@ -37,6 +37,16 @@ describe("handler validation", () => {
     expect(res.status).toBe(405);
     expect(res.headers.get("content-type")).toContain("application/json");
     expect(await res.json()).toHaveProperty("error");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("the default export is Vercel's { fetch } shape and routes to the handler", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    expect(typeof fn.fetch).toBe("function");
+    const res = await fn.fetch(new Request("http://x/api/ask", { method: "GET" }));
+    expect(res.status).toBe(405);
+    expect(await res.json()).toEqual({ error: "method not allowed" });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -90,6 +100,27 @@ describe("handler validation", () => {
   });
 });
 
+describe("origin check", () => {
+  it("same-origin and missing Origin pass; a foreign Origin gets 403 before the provider", async () => {
+    const fetchSpy = vi.fn(async () => geminiOk("ok"));
+    vi.stubGlobal("fetch", fetchSpy);
+    expect((await handler(post({ question: "hi" }, freshIp(), { origin: "http://x" }))).status).toBe(200);
+    expect((await handler(post({ question: "hi" }, freshIp()))).status).toBe(200);
+    expect(
+      (await handler(post({ question: "hi" }, freshIp(), { origin: "https://portfolio-personal-git-main-ahnf.vercel.app" })))
+        .status,
+    ).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+
+    for (const origin of ["https://evil.example", "https://someone-else.vercel.app", "null"]) {
+      const res = await handler(post({ question: "hi" }, freshIp(), { origin }));
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: "forbidden" });
+    }
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+});
+
 describe("checkRate", () => {
   it("rate limits the 21st request in an hour per ip with 429", async () => {
     const store = new Map<string, { windowStart: number; count: number }>();
@@ -138,7 +169,7 @@ describe("provider", () => {
     expect(JSON.parse(String(init.body))).toEqual({
       system_instruction: { parts: [{ text: buildSystemPrompt() }] },
       contents: [{ role: "user", parts: [{ text: "Where does Ahnaf work?" }] }],
-      generationConfig: { maxOutputTokens: 300, temperature: 0.4 },
+      generationConfig: { maxOutputTokens: 600, temperature: 0.4, thinkingConfig: { thinkingLevel: "minimal" } },
     });
   });
 

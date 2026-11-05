@@ -1,4 +1,4 @@
-import { buildSystemPrompt } from "./_context";
+import { buildSystemPrompt } from "./_context.js";
 
 export const MODEL = "gemini-3.1-flash-lite";
 export const RATE_LIMIT = { perHour: 20 };
@@ -6,6 +6,9 @@ export const RATE_LIMIT = { perHour: 20 };
 const MAX_CHARS = 300;
 const TIMEOUT_MS = 15_000;
 const WINDOW_MS = 3_600_000;
+// This project's *.vercel.app hosts: production alias and preview deployments
+// (`portfolio-personal-<hash>-<scope>`, `portfolio-personal-git-<branch>-<scope>`).
+const PREVIEW_HOST = /^portfolio-personal(?:-[a-z0-9-]+)?\.vercel\.app$/;
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 type RateEntry = { windowStart: number; count: number };
@@ -34,7 +37,9 @@ export async function callProvider(
     body: JSON.stringify({
       system_instruction: { parts: [{ text: buildSystemPrompt() }] },
       contents: [{ role: "user", parts: [{ text: question }] }],
-      generationConfig: { maxOutputTokens: 300, temperature: 0.4 },
+      // Minimal thinking keeps latency low; the larger budget leaves room for any
+      // reasoning tokens so a 120-word answer (capped in the system prompt) is never cut.
+      generationConfig: { maxOutputTokens: 600, temperature: 0.4, thinkingConfig: { thinkingLevel: "minimal" } },
     }),
     signal: deps.signal,
   });
@@ -69,8 +74,27 @@ function clientIp(req: Request): string {
   return first || "unknown";
 }
 
-export default async function handler(req: Request): Promise<Response> {
+/**
+ * Cheap cross-origin guard. A browser POST from another site carries its Origin;
+ * allow only this deployment's own host and this project's *.vercel.app previews.
+ * Requests without an Origin header (curl, server-side callers) pass.
+ */
+export function originAllowed(req: Request): boolean {
+  const origin = req.headers.get("origin");
+  if (!origin) return true;
+  let host: string;
+  try {
+    host = new URL(origin).host;
+  } catch {
+    return false;
+  }
+  if (host === new URL(req.url).host) return true;
+  return PREVIEW_HOST.test(host);
+}
+
+export async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return error("method not allowed", 405);
+  if (!originAllowed(req)) return error("forbidden", 403);
 
   const raw = await readQuestion(req);
   if (raw === null) return error("expected JSON body with a string question", 400);
@@ -94,3 +118,6 @@ export default async function handler(req: Request): Promise<Response> {
     clearTimeout(timer);
   }
 }
+
+// Vercel's Node runtime Web-standard export shape.
+export default { fetch: handler };

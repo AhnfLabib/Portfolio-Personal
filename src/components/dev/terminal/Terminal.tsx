@@ -1,4 +1,4 @@
-import { useEffect, useRef, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useId, useRef, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { HINT_LINE, IDLE_LINES, type Line } from "./commands";
 import { Companions } from "./Companion";
@@ -79,6 +79,7 @@ export default function Terminal() {
   const idle = state.lines === IDLE_LINES;
   const showPrompt = state.active || !idle;
   const focusInput = () => inputRef.current?.focus();
+  const hintId = useId();
 
   // The input mounts on activation, so focus it once it exists.
   useEffect(() => {
@@ -115,10 +116,9 @@ export default function Terminal() {
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       api.historyDown();
-    } else if (e.key === "Tab" && !e.shiftKey && state.input !== "") {
-      // Only with something to complete, so an empty prompt never traps keyboard focus.
-      e.preventDefault();
-      api.tabComplete();
+    } else if (e.key === "Tab" && !e.shiftKey) {
+      // Swallow Tab only when it completed something, so it never traps keyboard focus.
+      if (api.tabComplete()) e.preventDefault();
     } else if (e.ctrlKey && e.key.toLowerCase() === "l") {
       e.preventDefault();
       api.clear();
@@ -128,6 +128,7 @@ export default function Terminal() {
   return (
     <div
       className="relative"
+      role="group"
       // Untabbable while active, so Shift+Tab from the input leaves the card.
       tabIndex={state.active ? -1 : 0}
       aria-label="Interactive terminal. Click or press Enter to type commands."
@@ -135,6 +136,9 @@ export default function Terminal() {
       onFocus={onFocus}
       onBlur={onBlur}
     >
+      <p id={hintId} className="sr-only">
+        Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves.
+      </p>
       <Companions
         mood={state.mood}
         skin={state.skin}
@@ -177,6 +181,7 @@ export default function Terminal() {
                   <input
                     ref={inputRef}
                     aria-label="terminal input"
+                    aria-describedby={hintId}
                     value={state.input}
                     onChange={(e) => api.setInput(e.target.value)}
                     onKeyDown={onKeyDown}
@@ -184,7 +189,8 @@ export default function Terminal() {
                     autoCapitalize="off"
                     autoCorrect="off"
                     spellCheck={false}
-                    className="min-w-0 flex-1 bg-transparent text-ink caret-accent outline-none"
+                    // 16px on phones so iOS does not zoom the page on focus; matches the log from sm up.
+                    className="min-w-0 flex-1 bg-transparent text-base text-ink caret-accent outline-none sm:text-sm"
                   />
                 ) : (
                   // Inactive with output: only the pending text; the cursor (the

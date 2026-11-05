@@ -65,6 +65,11 @@ export function consumeQuota(storage: Storage | null, now: Date): { allowed: boo
   return { allowed: true, remaining: Math.max(0, ASK_DAILY_CAP - next.count) };
 }
 
+/** Gives back one question for the day (floor 0), e.g. when the server could not answer. */
+export function refundQuota(storage: Storage | null, now: Date): void {
+  updateQuota(storage, now, (q) => ({ date: q.date, count: Math.max(0, q.count - 1) }));
+}
+
 export function validateQuestion(q: string): { ok: true; question: string } | { ok: false; reason: "empty" | "long" } {
   const question = q.trim();
   if (!question) return { ok: false, reason: "empty" };
@@ -103,7 +108,10 @@ export async function ask(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ASK_TIMEOUT_MS);
   try {
-    return await askServer(v.question, { fetch: deps.fetch, signal: controller.signal });
+    const result = await askServer(v.question, { fetch: deps.fetch, signal: controller.signal });
+    // Only answered questions count: outages, timeouts and rate limits give the question back.
+    if (!result.ok) refundQuota(deps.storage, deps.now);
+    return result;
   } finally {
     clearTimeout(timer);
   }

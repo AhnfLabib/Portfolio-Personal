@@ -136,6 +136,33 @@ describe("Terminal", () => {
     expect(await t.activate()).toHaveValue("projects");
   });
 
+  it("Tab with nothing to complete is not swallowed, so focus can leave", async () => {
+    const t = setup();
+    const input = await t.activate();
+    await t.user.keyboard("zzz{Tab}");
+    expect(input).not.toHaveFocus();
+  });
+
+  it("after Ctrl+L, leaving the card shows the idle lines again", async () => {
+    const t = setup();
+    await t.activate();
+    await t.user.keyboard("help{Enter}");
+    await t.user.keyboard("{Control>}l{/Control}");
+    await t.user.keyboard("{Escape}");
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(within(t.log()).getByText(IDLE_LINES[0].text)).toBeInTheDocument();
+  });
+
+  it("card is a labelled group and the input is described by the keyboard hint", async () => {
+    const t = setup();
+    expect(t.card()).toHaveAttribute("role", "group");
+    const input = await t.activate();
+    expect(input).toHaveAccessibleDescription(
+      "Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves.",
+    );
+    expect(input).toHaveClass("text-base", "sm:text-sm");
+  });
+
   it("Escape before anything ran returns to idle", async () => {
     const t = setup();
     await t.activate();

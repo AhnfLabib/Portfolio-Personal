@@ -1,4 +1,4 @@
-import { about, education, experience, hero, leadership, projects, socials } from "../src/data/content";
+import { about, education, experience, hero, leadership, projects, socials } from "../src/data/content.js";
 
 const RULES = [
   "You are an assistant on Ahnaf Labib's portfolio website, answering questions typed into its terminal.",

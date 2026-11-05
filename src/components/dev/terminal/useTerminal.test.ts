@@ -179,6 +179,44 @@ describe("useTerminal", () => {
     expect(state().lines).toEqual([]);
   });
 
+  it("deactivate after clear restores the idle lines and the idle look", () => {
+    const { state, api, run } = setup();
+    act(() => api().activate());
+    run("help");
+    act(() => api().clear());
+    expect(state().lines).toEqual([]);
+    act(() => api().deactivate());
+    expect(state().active).toBe(false);
+    expect(state().lines).toBe(IDLE_LINES);
+    expect(state().showHint).toBe(false);
+    act(() => api().activate());
+    expect(state().showHint).toBe(true);
+  });
+
+  it("tabComplete reports whether the input changed", () => {
+    const { state, api } = setup();
+    let changed: boolean | undefined;
+    act(() => {
+      changed = api().tabComplete();
+    });
+    expect(changed).toBe(false); // empty input
+    act(() => api().setInput("exp"));
+    act(() => {
+      changed = api().tabComplete();
+    });
+    expect(changed).toBe(true);
+    expect(state().input).toBe("experience");
+    act(() => {
+      changed = api().tabComplete();
+    });
+    expect(changed).toBe(false); // already complete
+    act(() => api().setInput("zzz"));
+    act(() => {
+      changed = api().tabComplete();
+    });
+    expect(changed).toBe(false); // no match
+  });
+
   it("clear cancels an in-flight typewriter", () => {
     vi.useFakeTimers();
     const { state, api, run } = setup({ typeDelayMs: 50, storage: null });
@@ -231,6 +269,25 @@ describe("useTerminal", () => {
     expect(state().mood).toBe("thinking");
     expect(fetch).toHaveBeenCalledOnce();
     await act(async () => pending.reject(new Error("network")));
+    expect(state().busy).toBe(false);
+    expect(state().lines.at(-1)).toEqual({ kind: "error", text: OFFLINE_LINE });
+    expect(state().mood).toBe("confused");
+  });
+
+  it("ask: a rejection inside ask() maps to the offline line and clears busy", async () => {
+    // ask() swallows fetch and storage errors itself, so force the guarded call to
+    // throw through deps.now(), which runs inside it.
+    let calls = 0;
+    const now = () => {
+      calls++;
+      throw new Error("clock broke");
+    };
+    const fetch = vi.fn() as unknown as typeof globalThis.fetch;
+    const { state, api } = setup({ reduceMotion: true, storage: null, fetch, now });
+    act(() => api().setInput("ask hi"));
+    await act(async () => api().submit());
+    expect(calls).toBe(1);
+    expect(fetch).not.toHaveBeenCalled();
     expect(state().busy).toBe(false);
     expect(state().lines.at(-1)).toEqual({ kind: "error", text: OFFLINE_LINE });
     expect(state().mood).toBe("confused");

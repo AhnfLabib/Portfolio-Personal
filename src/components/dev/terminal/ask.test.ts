@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { readQuota, consumeQuota, validateQuestion, askServer, ask } from "./ask";
+import { readQuota, consumeQuota, refundQuota, validateQuestion, askServer, ask } from "./ask";
 
 function memStorage(): Storage {
   const m = new Map<string, string>();
@@ -81,5 +81,53 @@ describe("ask", () => {
     for (let i = 0; i < 10; i++) consumeQuota(s, new Date());
     expect(await ask("hi", { fetch: f, storage: s, now: new Date() })).toEqual({ ok: false, reason: "cap" });
     expect(f).not.toHaveBeenCalled();
+  });
+  it("a successful answer keeps the consumed question", async () => {
+    const s = memStorage();
+    const now = new Date("2026-11-05T10:00");
+    const f = vi.fn().mockResolvedValue(Response.json({ answer: "hi" }));
+    expect(await ask("hi", { fetch: f, storage: s, now })).toEqual({ ok: true, answer: "hi" });
+    expect(readQuota(s, now).count).toBe(1);
+  });
+  it("a non-OK response or a failed request refunds the question", async () => {
+    const s = memStorage();
+    const now = new Date("2026-11-05T10:00");
+    consumeQuota(s, now);
+    consumeQuota(s, now);
+    for (const status of [429, 500, 502, 503]) {
+      const f = vi.fn().mockResolvedValue(Response.json({ error: "x" }, { status }));
+      expect(await ask("hi", { fetch: f, storage: s, now })).toEqual({ ok: false, reason: "offline" });
+      expect(readQuota(s, now).count).toBe(2);
+    }
+    const net = vi.fn().mockRejectedValue(new TypeError("network"));
+    expect(await ask("hi", { fetch: net, storage: s, now })).toEqual({ ok: false, reason: "offline" });
+    expect(readQuota(s, now).count).toBe(2);
+  });
+  it("refunds let a visitor at the cap keep asking after an outage", async () => {
+    const s = memStorage();
+    const now = new Date("2026-11-05T10:00");
+    for (let i = 0; i < 9; i++) consumeQuota(s, now);
+    await ask("hi", { fetch: vi.fn().mockResolvedValue(new Response("", { status: 503 })), storage: s, now });
+    expect(readQuota(s, now).count).toBe(9);
+    const ok = vi.fn().mockResolvedValue(Response.json({ answer: "yes" }));
+    expect(await ask("hi", { fetch: ok, storage: s, now })).toEqual({ ok: true, answer: "yes" });
+    expect(readQuota(s, now).count).toBe(10);
+  });
+});
+
+describe("refundQuota", () => {
+  it("floors at 0 and tolerates missing or throwing storage", () => {
+    const s = memStorage();
+    const now = new Date("2026-11-05T10:00");
+    refundQuota(s, now);
+    expect(readQuota(s, now).count).toBe(0);
+    consumeQuota(s, now);
+    refundQuota(s, now);
+    expect(readQuota(s, now).count).toBe(0);
+    expect(() => refundQuota(null, now)).not.toThrow();
+    const boom = (): never => {
+      throw new Error("denied");
+    };
+    expect(() => refundQuota({ ...memStorage(), getItem: boom, setItem: boom } as Storage, now)).not.toThrow();
   });
 });
