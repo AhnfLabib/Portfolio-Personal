@@ -38,7 +38,7 @@ export default function CreativeStatement() {
               className="absolute -top-3 left-1/2 h-6 w-20 -translate-x-1/2 -rotate-3 rounded-[2px] bg-accent/25"
             />
             <img
-              src={about.image}
+              src={about.artistImage}
               alt="Ahnaf Labib"
               loading="lazy"
               className="h-36 w-36 rounded-full border-4 border-surface object-cover shadow-lg ring-1 ring-line sm:h-44 sm:w-44"
