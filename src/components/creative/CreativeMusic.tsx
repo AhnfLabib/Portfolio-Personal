@@ -45,7 +45,7 @@ export default function CreativeMusic(): JSX.Element {
         <ul ref={listRef} className="mt-12 grid gap-6 sm:grid-cols-3">
           {music.covers.map(({ title, artist, reel }) => (
             <li key={reel}>
-              <div className={`aspect-[9/16] max-h-[70vh] w-full${mounted ? "" : " bg-surface-2"}`}>
+              <div className={`aspect-[9/16] max-h-[70vh] mx-auto w-full max-w-[calc(70vh*9/16)]${mounted ? "" : " bg-surface-2"}`}>
                 {mounted && (
                   <iframe
                     src={`https://www.instagram.com/reel/${reel}/embed/`}

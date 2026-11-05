@@ -43,6 +43,30 @@ describe("DraftPlayer", () => {
       />,
     );
     expect(screen.getByText("Oct 2026")).toBeInTheDocument();
+    expect(screen.getByText("Fog").parentElement!.textContent).toBe("Fog · Oct 2026");
+  });
+
+  it("calls onPause when play() rejects while still playing", async () => {
+    vi.mocked(HTMLMediaElement.prototype.play).mockRejectedValue(new Error("NotAllowedError"));
+    const onPause = vi.fn();
+    render(<DraftPlayer draft={draft} index={0} playing={true} onPlay={() => {}} onPause={onPause} onEnded={() => {}} />);
+    await vi.waitFor(() => expect(onPause).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not call onPause on a rejected play() once the row is no longer playing", async () => {
+    let reject!: (e: Error) => void;
+    vi.mocked(HTMLMediaElement.prototype.play).mockReturnValue(
+      new Promise<void>((_, r) => {
+        reject = r;
+      }),
+    );
+    const onPause = vi.fn();
+    const props = { draft, index: 0, onPlay: () => {}, onPause, onEnded: () => {} };
+    const { rerender } = render(<DraftPlayer {...props} playing={true} />);
+    rerender(<DraftPlayer {...props} playing={false} />);
+    reject(new Error("AbortError"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(onPause).not.toHaveBeenCalled();
   });
 
   it("controls the audio element from the playing prop", () => {

@@ -15,16 +15,27 @@ export default function DraftPlayer({ draft, index, playing, onPlay, onPause, on
   const audioRef = useRef<HTMLAudioElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [current, setCurrent] = useState(0);
+  const onPauseRef = useRef(onPause);
+  useEffect(() => {
+    onPauseRef.current = onPause;
+  }, [onPause]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (playing) {
-      // Autoplay policies or a missing file reject the promise; nothing to do.
-      audio.play()?.catch(() => {});
-    } else {
+    if (!playing) {
       audio.pause();
+      return;
     }
+    // Autoplay policies or a missing file reject the promise: drop the playing
+    // state so the row doesn't claim to play. Skip if this row has since stopped.
+    let stale = false;
+    audio.play()?.catch(() => {
+      if (!stale) onPauseRef.current();
+    });
+    return () => {
+      stale = true;
+    };
   }, [playing]);
 
   const toggle = () => (playing ? onPause() : onPlay(index));
@@ -52,7 +63,12 @@ export default function DraftPlayer({ draft, index, playing, onPlay, onPause, on
       <p className="shrink-0">
         <span className="font-display text-lg text-ink">{draft.title}</span>
         {draft.month !== "" && (
-          <span className="ml-2 font-mono text-xs uppercase tracking-wide text-ink-faint">{draft.month}</span>
+          <>
+            <span aria-hidden="true" className="text-ink-faint">
+              {" · "}
+            </span>
+            <span className="font-mono text-xs uppercase tracking-wide text-ink-faint">{draft.month}</span>
+          </>
         )}
       </p>
       <input

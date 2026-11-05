@@ -1,7 +1,6 @@
-import { motion } from "framer-motion";
 import { Github, Instagram, Linkedin, Mail } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { socials } from "../../data/content";
+import { creative, socials } from "../../data/content";
 import { usePersona } from "../../persona/PersonaContext";
 
 const socialIcons: Record<string, LucideIcon> = {
@@ -20,13 +19,7 @@ export default function CreativeContact() {
       id="contact"
       className="scroll-mt-24 px-4 py-24 text-center sm:px-6 sm:py-32"
     >
-      <motion.div
-        initial={{ opacity: 0, y: 28 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-80px" }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="mx-auto max-w-3xl"
-      >
+      <div className="mx-auto max-w-3xl">
         <p className="mb-6 flex items-center justify-center gap-4 text-xs font-semibold uppercase tracking-[0.35em] text-ink-soft">
           <span className="h-px w-10 bg-accent" aria-hidden="true" />
           <span>Contact</span>
@@ -36,12 +29,11 @@ export default function CreativeContact() {
           className="font-display font-semibold leading-[0.95] tracking-tight text-ink"
           style={{ fontSize: "clamp(2.5rem, 8vw, 5rem)" }}
         >
-          Let&rsquo;s make <span className="italic text-accent">something</span>.
+          {creative.contact.headline}
         </h2>
 
         <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-ink-soft sm:text-lg">
-          A print, a portrait, a song, or a website — if there&rsquo;s some soul
-          in it, I&rsquo;m in. Say hello and let&rsquo;s trade ideas.
+          {creative.contact.line}
         </p>
 
         {mail && (
@@ -95,7 +87,7 @@ export default function CreativeContact() {
             </span>
           </button>
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 }
