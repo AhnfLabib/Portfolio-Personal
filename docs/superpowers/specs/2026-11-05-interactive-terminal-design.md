@@ -1,7 +1,7 @@
 # Interactive hero terminal with pixel companions
 
 Date: 2026-11-05
-Status: approved in conversation, awaiting spec review
+Status: approved; revised after a taste-skill review (see "Design review" at the end)
 
 ## Goal
 
@@ -48,9 +48,15 @@ public/resume.pdf     the resume the `resume` command opens
   on the title bar.
 - **active** – entered by click anywhere on the card, or by keyboard focus
   (the card is a focusable region). A `$ ` prompt line with a blinking
-  cursor appears under the two lines, with four suggestion chips: `help`,
-  `projects`, `experience`, `ask`. Clicking a chip runs that command (for
-  `ask`, it fills the prompt with `ask ` and focuses it).
+  cursor appears under the two lines, followed by one dimmed hint line in
+  the terminal's own idiom: `try: help · projects · experience · ask`. Each
+  word is a mono link in the site's existing link style (no new button
+  component). Clicking one runs that command (for `ask`, it fills the prompt
+  with `ask ` and focuses it). The hint line disappears after the first
+  command runs.
+
+The card's outer height is the same in both states. Entering active state
+moves nothing below the card; the hero stays within the first screen.
 - Leaving (Esc, or focus moving away) returns to **idle** only if the output
   log is empty; otherwise the card stays active-looking with its output,
   just without the cursor blinking.
@@ -70,8 +76,10 @@ keystrokes so mobile keyboards open and screen readers work.
 
 ### Output
 
-- Output lines append below the prompt history inside the card. The log area
-  has `max-height: 40vh` and scrolls; the newest line is kept in view.
+- The card body is a single scroll region of fixed height (the height the
+  idle body has today). The two idle lines are the first entries in the log;
+  as output arrives, older lines scroll up and away. The newest line is kept
+  in view. The card never grows.
 - Lines type out at ~1.5 ms/char. Clicking the log while typing finishes
   the current output instantly.
 - Link lines (e.g. `→ jump to projects`) are real anchors that scroll to the
@@ -100,15 +108,14 @@ passed as a single string.
 | `leadership` | each `leadership` entry like `experience`, then `→ jump to leadership` |
 | `contact` | email plus `→ jump to contact` |
 | `socials` | each `socials` entry as a link |
-| `resume` | opens `/resume.pdf` in a new tab and prints `opening resume…` |
+| `resume` | opens `/resume.pdf` in a new tab and prints `opening resume.pdf` |
 | `ask <question>` | see "ask" below; with no argument prints usage |
 | `skin` | lists skins, marks the current one |
 | `skin <name>` | applies the skin to both companions; unknown name lists skins |
 | `pet` | cat purrs (hearts), Ahnaf goes happy; prints `purrrr` |
 | `clear` | wipes the log |
 | `ls` | fake listing: `experience/  projects/  skills.txt  resume.pdf  cat.jpg` |
-| `sudo <anything>` | both companions put on shades; prints `nice try. ahnaf is not in the sudoers file.` |
-| `exit` | `there is no escape. (try 'clear')` |
+| `sudo <anything>` | both companions put on shades; prints `ahnaf is not in the sudoers file. this incident will be reported.` |
 | anything else | `command not found: <x>` plus `did you mean '<closest>'?` when the closest known command is within Levenshtein distance 2 |
 
 Scripted answers are built at call time from `content.ts` so they never go
@@ -128,15 +135,22 @@ scaled with CSS so they stay sharp.
 
 They are absolutely positioned on the card's top edge so their feet overlap
 the title bar; the cat's tail hangs past the card's right edge. They do not
-affect layout.
+affect layout. Ahnaf is at most 24 px tall, the cat at most 16 px, drawn in
+the site's existing tokens (`ink`, `ink-soft`, `ink-faint`, `accent`, `bg`)
+so they read as part of the card's chrome rather than full-colour art.
 
 ### Moods
 
 Each mood is a frame list; animation cycles frames on a timer.
 
+**Motion only runs while the card is active.** In idle state both
+companions are still frames: no blink, no breathing, no walking, so the
+default hero is as calm as today's. All motion is started by the visitor's
+own action and is short; leaving the card stops it.
+
 | Ahnaf | Trigger |
 |---|---|
-| idle | default; blinks every 3–5 s |
+| idle | still frame; while active, blinks on a fixed 4 s cycle |
 | typing | input has focus and non-empty text |
 | thinking | a command is producing output or `ask` is in flight; `…` bubble |
 | happy | after any successful command, 1.5 s; after `pet` |
@@ -144,10 +158,10 @@ Each mood is a frame list; animation cycles frames on a timer.
 
 | Cat | Trigger |
 |---|---|
-| sleeping | default in idle state |
+| sleeping | still frame in idle state |
 | awake | card active |
-| stretch | on entering active, once |
-| walk | every ~30 s of inactivity while active, walks across the title bar and back |
+| stretch | on entering active, once, ≤1 s |
+| walk | while active, at most once per 30 s, ≤3 s across the title bar and back |
 | purr | `pet`, 2 s, hearts |
 
 ### Skins
@@ -164,10 +178,10 @@ the session without changing the stored skin.
 - Trims the question; rejects empty or >300 chars with a usage line.
 - Daily cap: `localStorage` key `portfolio-ask-quota` storing `{date, count}`;
   10 per calendar day (local time). Over the cap prints
-  `you've used today's 10 questions — email me instead → contact`.
+  `daily limit reached (10 questions). email me instead → contact`.
 - `POST /api/ask` with `{question}`; 15 s timeout via `AbortController`.
 - Success prints the answer. Any failure prints
-  `the oracle is offline — try 'help'`.
+  `ask is offline right now — try 'help'`.
 - Ahnaf shows *thinking* for the duration.
 
 ### Server (`api/ask.ts`)
@@ -227,3 +241,23 @@ title bar; reduced-motion mode.
   an error on screen.
 - Sprite art is hand-drawn pixel data; it will take a few iterations to look
   right. Frames are cheap to change.
+
+## Design review
+
+Reviewed against the vendored `taste-skill` (`.claude/skills/taste-skill`)
+house rules, checklist and "Never" list. Changes folded in above:
+
+1. Fixed-height card so the active state never pushes the hero past the
+   first screen (rule 3, "hero fills the first screen alone").
+2. No idle motion and no random blinking; all companion motion is
+   user-initiated and short (§6 "random blinking", §5 motion past 5 s).
+3. Plain copy: every message states what happened and what to do next;
+   `exit` dropped; fewer easter eggs.
+4. Suggestions are a hint line in the terminal's idiom, not a third button
+   style beside the hero's CTA pair (§5 "one system").
+5. Companions sized and coloured as card chrome so the hero stays the work,
+   not a mood.
+
+Pre-existing and out of scope, noted for a later pass: scroll-triggered
+fade-ins across the site and the caption under the Artist page headshot are
+both on the skill's "Never" list.
