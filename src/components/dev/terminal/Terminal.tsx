@@ -11,7 +11,6 @@ const KIND_CLASS: Record<Exclude<Line["kind"], "link">, string> = {
   hint: "text-ink-faint",
 };
 const LINK_CLASS = "text-accent underline-offset-4 hover:underline";
-const CURSOR_CLASS = "ml-1 inline-block h-[1.05em] w-[0.5em] translate-y-[0.12em] bg-accent";
 // Pinned to the idle body's rendered height (two prompt/output pairs) at each
 // width where the idle lines wrap differently, so activation never moves the hero.
 const LOG_HEIGHT = "h-[9.25rem] min-[24.875rem]:h-[8.25rem] min-[29.8125rem]:h-[7.25rem] sm:h-[8.25rem]";
@@ -99,12 +98,17 @@ export default function Terminal() {
   const onBlur = (e: FocusEvent<HTMLDivElement>) => {
     if (!e.currentTarget.contains(e.relatedTarget as Node | null)) api.deactivate();
   };
-  const onClick = () => {
+  const onClick = (e: MouseEvent<HTMLDivElement>) => {
+    // A real link (e.g. "→ jump to projects") navigates; don't pull focus back into the hero.
+    const link = (e.target as Element).closest("a");
+    if (link && link.getAttribute("href") !== "#") return;
     api.activate();
     focusInput();
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") api.submit();
+    if (e.key === "Enter") {
+      if (!e.nativeEvent.isComposing) api.submit();
+    }
     else if (e.key === "ArrowUp") {
       e.preventDefault();
       api.historyUp();
@@ -124,7 +128,8 @@ export default function Terminal() {
   return (
     <div
       className="relative"
-      tabIndex={0}
+      // Untabbable while active, so Shift+Tab from the input leaves the card.
+      tabIndex={state.active ? -1 : 0}
       aria-label="Interactive terminal. Click or press Enter to type commands."
       onClick={onClick}
       onFocus={onFocus}
@@ -182,12 +187,9 @@ export default function Terminal() {
                     className="min-w-0 flex-1 bg-transparent text-ink caret-accent outline-none"
                   />
                 ) : (
-                  // Inactive with output: the pending text and a still cursor; while
-                  // active, the focused input's accent caret is the blinking cursor.
-                  <span className="text-ink">
-                    {state.input}
-                    <span aria-hidden="true" className={CURSOR_CLASS} />
-                  </span>
+                  // Inactive with output: only the pending text; the cursor (the
+                  // input's accent caret) shows only while active.
+                  <span className="text-ink">{state.input}</span>
                 )}
               </p>
               {state.active && state.showHint && <HintLine api={api} focusInput={focusInput} />}

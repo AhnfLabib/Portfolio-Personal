@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-import { getDefaultNormalizer, render, screen, within } from "@testing-library/react";
+import { fireEvent, getDefaultNormalizer, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Terminal from "./Terminal";
 import { IDLE_LINES } from "./commands";
@@ -66,6 +66,42 @@ describe("Terminal", () => {
     const t = setup();
     await t.user.tab();
     expect(t.input()).toHaveFocus();
+  });
+
+  it("Shift+Tab from the input leaves the card", async () => {
+    const t = setup();
+    render(<button>before</button>, { container: document.body.insertBefore(document.createElement("div"), document.body.firstChild) });
+    await t.activate();
+    await t.user.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "before" })).toHaveFocus();
+    expect(t.card()).not.toContainElement(document.activeElement as HTMLElement);
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("inactive with output shows the pending text but no cursor", async () => {
+    const t = setup();
+    await t.activate();
+    await t.user.keyboard("skills{Enter}pro{Escape}");
+    expect(within(t.log()).getByText("pro")).toBeInTheDocument();
+    expect(t.log().querySelector(".bg-accent")).toBeNull();
+  });
+
+  it("clicking a real link in the log does not pull focus into the input", async () => {
+    const t = setup();
+    await t.activate();
+    await t.user.keyboard("projects{Enter}");
+    const jump = within(t.log()).getByRole("link", { name: "→ jump to projects" });
+    await t.user.click(jump);
+    expect(t.input()).not.toHaveFocus();
+  });
+
+  it("Enter during IME composition does not submit", async () => {
+    const t = setup();
+    const input = await t.activate();
+    await t.user.keyboard("help");
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    expect(within(t.log()).queryByText("$ help")).toBeNull();
+    expect(input).toHaveValue("help");
   });
 
   it("Enter runs a command and output appears in the log", async () => {
