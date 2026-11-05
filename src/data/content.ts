@@ -75,7 +75,7 @@ export interface TimelineEntry {
 
 export const experience: TimelineEntry[] = [
   {
-    logo: "/assets/BBS.svg",
+    logo: "/assets/BBS.png",
     title: "AI Solutions Engineer",
     org: "Bridge Builder Strategies",
     duration: "Jan 2026 – Present",
