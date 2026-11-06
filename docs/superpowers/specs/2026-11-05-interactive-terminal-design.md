@@ -322,3 +322,24 @@ becomes interactive. Supersedes the v2 section where they conflict.
 - Accessibility: the cat is decorative (`aria-hidden`); the click target
   is a `<button aria-label="the cat">` wrapping the sprite, keyboard
   focusable, Enter/Space = click reaction.
+
+## Revision: love mode (user decision, 2026-11-06)
+
+When a visitor asks the terminal about Ahnaf's love life, his girlfriend,
+or the names "Prono" or "Sadiya" (Sadiya, nicknamed Prono, is his
+girlfriend), the answer should gush — an affectionate, delighted,
+fan-girling tone, still ≤120 words, plain text, no invented facts beyond:
+she is his girlfriend, he adores her — and the cat goes shy/lovey.
+
+- **Server (`api/ask.ts`):** detect the topic with a case-insensitive
+  regex on the question (`love|girlfriend|gf|partner|crush|prono|sadiya|
+  dating|relationship|wife|marry`), pass a `mode: "love"` flag; the system
+  prompt gains a facts line about Sadiya/Prono and a rule: in love mode,
+  answer like an excited best friend (exclamation marks allowed, one or two
+  hearts allowed), otherwise never mention her unprompted. Response adds
+  `{ answer, mode: "love" | "normal" }`.
+- **Client (`ask.ts` → `useTerminal`):** `AskResult` carries `mode`; on
+  `love`, the hook bumps `loveTick`, which `Companions` shows as the `love`
+  pose with hearts for 4 s. The answer line is printed as usual.
+- Scripted path: `ask` with no network still prints the offline line; no
+  love reaction without an answer.

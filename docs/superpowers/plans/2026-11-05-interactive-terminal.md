@@ -574,3 +574,13 @@ supersedes the Global Constraints lines on companion size and idle motion.
 - `Companions` props become `{ skin, shades, petTick, reduceMotion, onCatClick?: () => void }`; `mood`/`active` are no longer needed by the cat (remove from the call site).
 
 - [ ] Steps: failing tests (zone thresholds; tracking turns facing toward the cursor; bubble appears within 4–10 s of near and hides after 1.5 s; click → `!` bubble and hop, and the terminal's `activate` is NOT called; keyboard Enter on the cat button; reduced motion → no tracking) → implement → `npm test`, build → browser check at 1440/390 (cat follows the cursor in a 10 s Playwright mouse path; bubbles visible in a screenshot; card height/CTA unchanged: 175/715.30, 191/647.69) → commit.
+
+---
+
+### Task 11: Love mode (API detection + cat reaction wiring)
+
+**Spec:** "Revision: love mode" at the end of the spec. Depends on Task 10 (`loveTick` prop on `Companions`, `asking`/`thinking` plumbing).
+
+**Files:** `api/_context.ts` (facts + rule), `api/ask.ts` (regex `isLoveQuestion(q)`, `mode` in the Gemini system text and in the response), `src/components/dev/terminal/ask.ts` (`AskResult.ok` carries `mode`), `useTerminal.ts` (`loveTick` in state, bumped on `mode === "love"`), `Terminal.tsx` (pass `loveTick`), tests for each.
+
+- [ ] Steps: failing tests (regex positives/negatives incl. "Prono", "sadiya?", "who do you love"; response shape; client passes `mode` through; hook bumps `loveTick` only on love; Terminal passes it) → implement → `npm test`, `npx tsc -p tsconfig.api.json`, build → commit.
