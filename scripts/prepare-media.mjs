@@ -123,6 +123,9 @@ export const BORDER_SEAM = 3;
  * most BORDER_RAMP_MAX px. */
 export const BORDER_RAMP_MAX = 10;
 export const BORDER_RAMP_STEP = 4;
+/** The fade walk only starts if the line after the bright run is still this
+ * light, so a dark vignette inside a hard border keeps its pixels. */
+export const BORDER_FADE_LUMA = 200;
 
 /**
  * Given single-channel raw pixels, return the {left, top, width, height}
@@ -140,21 +143,27 @@ export function detectBorder({ data, width, height }) {
     for (let y = 0; y < height; y++) sum += data[y * width + x];
     return sum / height;
   };
-  // Border thickness along one side: skip up to BORDER_SEAM outermost lines
-  // that are not bright, count the run of bright ones, then the fade.
+  // One side: skip up to BORDER_SEAM outermost lines that are not bright,
+  // count the run of bright ones, then (only if the next line is still light)
+  // the fade. `run` alone decides whether there is a border; `full` (seam +
+  // run + fade) is where the picture starts.
   const side = (mean, max) => {
     let i = 0;
     while (i < BORDER_SEAM && i < max && mean(i) <= BORDER_LUMA) i++;
-    if (i >= max || mean(i) <= BORDER_LUMA) return 0;
+    const start = i;
     while (i < max && mean(i) > BORDER_LUMA) i++;
-    for (let k = 0; k < BORDER_RAMP_MAX && i + 1 < max && mean(i) - mean(i + 1) >= BORDER_RAMP_STEP; k++) i++;
-    return i;
+    const run = i - start;
+    if (run > 0 && i < max && mean(i) > BORDER_FADE_LUMA) {
+      for (let k = 0; k < BORDER_RAMP_MAX && i + 1 < max && mean(i) - mean(i + 1) >= BORDER_RAMP_STEP; k++) i++;
+    }
+    return { run, full: i };
   };
-  const top = side(rowMean, height);
-  const bottom = side((i) => rowMean(height - 1 - i), height - top);
-  const left = side(colMean, width);
-  const right = side((i) => colMean(width - 1 - i), width - left);
-  if (Math.min(top, bottom, left, right) < BORDER_MIN) return null;
+  const t = side(rowMean, height);
+  const b = side((i) => rowMean(height - 1 - i), height - t.full);
+  const l = side(colMean, width);
+  const r = side((i) => colMean(width - 1 - i), width - l.full);
+  if (Math.min(t.run, b.run, l.run, r.run) < BORDER_MIN) return null;
+  const [top, bottom, left, right] = [t.full, b.full, l.full, r.full];
   const rect = {
     left: left + BORDER_INSET,
     top: top + BORDER_INSET,

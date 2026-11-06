@@ -121,10 +121,29 @@ it("borderCrop leaves photos with no (or a thin) border alone", async () => {
     .toBuffer();
   expect(await borderCrop(sharp, plain)).toBeNull();
   expect(await borderCrop(sharp, await bordered({ border: 6 }))).toBeNull();
+  // A thin soft border: seam + run + fade may reach 8 px, the bright run does not.
+  for (const sigma of [1, 2]) {
+    expect(await borderCrop(sharp, await sharp(await bordered({ border: 6 })).blur(sigma).png().toBuffer())).toBeNull();
+  }
   // A bright sky along one edge only is not a border.
   const sky = await sharp(plain)
     .composite([{ input: { create: { width: 400, height: 60, channels: 3, background: "#ffffff" } }, left: 0, top: 0 }])
     .png()
     .toBuffer();
   expect(await borderCrop(sharp, sky)).toBeNull();
+});
+
+it("borderCrop keeps a dark vignette inside a hard border (no fade walk)", async () => {
+  // Hard 20 px white border; inside, a dark edge gradient that darkens 6 per px
+  // inward (100 at the edge, floor 20) — not a border fade.
+  const [w, h, border] = [360, 260, 20];
+  const px = Buffer.alloc(w * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) px[y * w + x] = Math.max(20, 100 - 6 * Math.min(x, y, w - 1 - x, h - 1 - y));
+  const inner = await sharp(px, { raw: { width: w, height: h, channels: 1 } }).png().toBuffer();
+  const img = await sharp({ create: { width: 400, height: 300, channels: 3, background: "#ffffff" } })
+    .composite([{ input: inner, left: border, top: border }])
+    .png()
+    .toBuffer();
+  expect(await borderCrop(sharp, img)).toEqual({ left: 22, top: 22, width: 356, height: 256 });
 });

@@ -35,7 +35,7 @@ describe("creative persona contrast (WCAG AA, normal text)", () => {
 
   it("contrast() matches known WCAG values", () => {
     expect(contrast("#000000", "#ffffff")).toBeCloseTo(21, 5);
-    expect(contrast("#95897a", "#f6f1e7")).toBeCloseTo(3.04, 1);
+    expect(contrast("#8e8477", "#0e0d0b")).toBeCloseTo(5.29, 1);
   });
 
   it("ink-faint on bg is at least 4.5:1", () => {
