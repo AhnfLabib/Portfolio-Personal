@@ -38,7 +38,7 @@ export const about = {
   artistImage: "/assets/ahnafLabib-artist.jpg",
   paragraphs: [
     "Hi, I'm Ahnaf (Uh-Nuf) — a passionate creator blending technology, design, and innovation to craft meaningful experiences.",
-    "As a Computer Science major at DePauw University, I thrive at the intersection of coding and creativity, building intuitive applications and impactful digital content. I've spearheaded social media campaigns, reimagined user interfaces for better engagement, and developed web applications that solve real-world problems. I also enjoy sharing my knowledge, mentoring peers to unlock the exciting potential of STEM.",
+    "A Computer Science graduate of DePauw University (class of 2026), now based in Indianapolis, I thrive at the intersection of coding and creativity, building intuitive applications and impactful digital content. I've spearheaded social media campaigns, reimagined user interfaces for better engagement, and developed web applications that solve real-world problems. I also enjoy sharing my knowledge, mentoring peers to unlock the exciting potential of STEM.",
     "Outside of coding, I dive into my creative side — capturing moments through photography, jamming on the guitar, or unwinding with challenging action-adventure games like Lies of P and Sekiro. If you're curious about my photography and music, check out my Instagram, where I post regularly. I'd love to connect and hear your thoughts on my work — let's build something awesome together!",
   ],
   stack: [
@@ -59,10 +59,11 @@ export const education = {
   school: "DePauw University",
   url: "https://www.depauw.edu/",
   location: "Greencastle, Indiana",
+  dates: "Aug 2022 – May 2026",
   degree: "Bachelor of Arts in Computer Science",
-  minor: "Minor in Philosophy",
+  minor: "Minor in Philosophy · Graduated May 2026",
   description:
-    "Developing a strong foundation in problem-solving, critical thinking, and technical innovation. My education focuses on blending analytical rigor with creative exploration to address real-world challenges.",
+    "Built a strong foundation in problem-solving, critical thinking, and technical innovation, blending analytical rigor with creative exploration to address real-world challenges. Now based in Indianapolis, Indiana.",
 } as const;
 
 export interface TimelineEntry {
@@ -121,7 +122,7 @@ export const leadership: TimelineEntry[] = [
     logo: "/assets/du.png",
     title: "Social Media Chair",
     org: "Delta Upsilon (DePauw Chapter)",
-    duration: "Aug 2024 – Present",
+    duration: "Aug 2024 – May 2026",
     description:
       "Strategized a seven-step content creation plan with a $400 budget to produce 12 impactful posts, resulting in 64% engagement growth. Revamped the chapter website using ReactJS and ShadCn, updating chapter and member information and boosting user activity by 57%.",
   },

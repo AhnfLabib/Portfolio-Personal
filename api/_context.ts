@@ -19,12 +19,12 @@ export const LOVE_MODE_LINE =
 
 /** Lines from Ahnaf's resume that the site content does not carry. No phone number. */
 const RESUME_FACTS = [
-  "Education: DePauw University, Bachelor's in Computer Science, graduation May 2026, cumulative GPA 3.77, CS GPA 3.80.",
+  "Education: DePauw University, Bachelor's in Computer Science, graduated May 2026 (alumnus, no longer a student), cumulative GPA 3.77, CS GPA 3.80.",
   "Awards: Top 3 at NCAA Final Four Analytics Challenge; Best Performing iD Tech Intern; Best Tenzer SDE Intern.",
   "Languages: Python, JavaScript, TypeScript, Java, SQL, Swift, C++, C, HTML, CSS.",
   "Software: Visual Studio Code, AWS, Lex, Bedrock, RDS, Firebase, Supabase, Jupyter, Figma, Claude Code, Swing.",
   "Frameworks: ReactJS, VueJS, NextJS, NodeJS, Django, DynamoDB, Scikit-learn.",
-  "Location: Indianapolis, IN.",
+  "Location: lives in Indianapolis, IN (moved after graduating from DePauw in Greencastle).",
   'Girlfriend: Sadiya (nickname "Prono"). Ahnaf adores her.',
   "Email: ahnaflabib212@gmail.com. LinkedIn: linkedin.com/in/ahnaflabib2026. GitHub: github.com/AhnfLabib. Website: ahnaflabib.com.",
 ].join("\n");
@@ -39,7 +39,7 @@ function buildFacts(): string {
     `Core stack: ${about.stack.join(", ")}.`,
     `Experience:\n${timeline(experience)}`,
     `Projects:\n${projects.map((p) => `- ${p.name} (${p.tech.join(", ")}): ${p.description} Code: ${p.github}`).join("\n")}`,
-    `Education (site): ${education.school}, ${education.location}. ${education.degree}, ${education.minor}. ${education.description}`,
+    `Education (site): ${education.school}, ${education.location}, ${education.dates}. ${education.degree}, ${education.minor}. ${education.description}`,
     `Leadership:\n${timeline(leadership)}`,
     `Links: ${socials.map((s) => `${s.label} ${s.href.replace(/^mailto:/, "")}`).join("; ")}.`,
     `Resume:\n${RESUME_FACTS}`,

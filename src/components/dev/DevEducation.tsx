@@ -43,7 +43,7 @@ export default function DevEducation() {
             </a>
 
             <p className="mt-2 font-mono text-xs text-ink-faint">
-              {education.minor}
+              {education.dates} · {education.minor}
             </p>
 
             <p className="mt-4 text-sm leading-relaxed text-ink-soft">
