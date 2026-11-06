@@ -2,8 +2,6 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { complete, IDLE_LINES, runCommand, SKINS, type Line, type SkinName } from "./commands";
 import { ask, CAP_LINE, OFFLINE_LINE, type AskResult } from "./ask";
 
-export type Mood = "idle" | "typing" | "thinking" | "happy" | "confused";
-
 export interface TerminalState {
   active: boolean;
   lines: Line[];
@@ -15,7 +13,6 @@ export interface TerminalState {
   askOutcome: "ok" | "fail" | null;
   skin: SkinName;
   shades: boolean;
-  mood: Mood;
   petTick: number;
   /** Bumped when an `ask` answer comes back in love mode (the cat goes lovey). */
   loveTick: number;
@@ -44,11 +41,7 @@ export interface TerminalDeps {
 }
 
 const SKIN_KEY = "portfolio-terminal-skin";
-const FLASH_MS = { happy: 1500, confused: 2000 } as const;
-type Flash = keyof typeof FLASH_MS;
-
-interface Internal extends Omit<TerminalState, "mood"> {
-  flash: Flash | null;
+interface Internal extends TerminalState {
   history: string[];
   cursor: number; // index into history; history.length means "fresh input"
 }
@@ -66,7 +59,6 @@ type Action =
   | { type: "skin"; skin: SkinName }
   | { type: "shades" }
   | { type: "pet" }
-  | { type: "flash"; mood: Flash | null }
   | { type: "historyUp" }
   | { type: "historyDown" }
   | { type: "tab" };
@@ -116,8 +108,6 @@ function reducer(s: Internal, a: Action): Internal {
       return { ...s, shades: true };
     case "pet":
       return { ...s, petTick: s.petTick + 1 };
-    case "flash":
-      return { ...s, flash: a.mood };
     case "historyUp":
       return s.cursor > 0 ? { ...s, cursor: s.cursor - 1, input: s.history[s.cursor - 1] } : s;
     case "historyDown": {
@@ -162,16 +152,9 @@ function init(storage: Storage | null): Internal {
     petTick: 0,
     loveTick: 0,
     showHint: false,
-    flash: null,
     history: [],
     cursor: 0,
   };
-}
-
-function moodOf(s: Internal): Mood {
-  if (s.busy) return "thinking";
-  if (s.flash) return s.flash;
-  return s.active && s.input !== "" ? "typing" : "idle";
 }
 
 function askLine(r: AskResult): Line {
@@ -197,7 +180,6 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
     queue: [] as Line[],
     onDone: null as (() => void) | null,
     typeTimer: null as ReturnType<typeof setTimeout> | null,
-    flashTimer: null as ReturnType<typeof setTimeout> | null,
     gen: 0, // bumped by clear() and unmount; stale ask results are dropped
   });
 
@@ -206,15 +188,6 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
     const dispatch = (a: Action) => {
       r.live = reducer(r.live, a);
       rawDispatch(a);
-    };
-
-    const flash = (mood: Flash) => {
-      if (r.flashTimer) clearTimeout(r.flashTimer);
-      dispatch({ type: "flash", mood });
-      r.flashTimer = setTimeout(() => {
-        r.flashTimer = null;
-        dispatch({ type: "flash", mood: null });
-      }, FLASH_MS[mood]);
     };
 
     const stopTyping = () => {
@@ -255,10 +228,7 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
       step();
     };
 
-    const finish = (ok: boolean) => {
-      dispatch({ type: "done" });
-      flash(ok ? "happy" : "confused");
-    };
+    const finish = () => dispatch({ type: "done" });
 
     const runAsk = async (question: string) => {
       const gen = r.gen;
@@ -277,7 +247,7 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
       if (gen !== r.gen) return;
       dispatch({ type: "append", lines: [askLine(result)], love: result.ok && result.mode === "love" });
       dispatch({ type: "asked", ok: result.ok });
-      finish(result.ok);
+      finish();
     };
 
     const clear = () => {
@@ -325,7 +295,6 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
               break;
             case "pet":
               dispatch({ type: "pet" });
-              flash("happy");
               break;
             case "open":
               if (typeof window !== "undefined" && typeof window.open === "function") {
@@ -337,7 +306,7 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
               break;
           }
         }
-        typeOut(result.lines, () => (question === null ? finish(result.ok) : void runAsk(question)));
+        typeOut(result.lines, () => (question === null ? finish() : void runAsk(question)));
       },
     };
   });
@@ -346,14 +315,13 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
     const r = rt.current;
     return () => {
       if (r.typeTimer) clearTimeout(r.typeTimer);
-      if (r.flashTimer) clearTimeout(r.flashTimer);
-      r.typeTimer = r.flashTimer = null;
+      r.typeTimer = null;
       r.queue = [];
       r.onDone = null;
       r.gen++;
     };
   }, []);
 
-  const { flash: _flash, history: _history, cursor: _cursor, ...visible } = state;
-  return [{ ...visible, mood: moodOf(state) }, api];
+  const { history: _history, cursor: _cursor, ...visible } = state;
+  return [visible, api];
 }

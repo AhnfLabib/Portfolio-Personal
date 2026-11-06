@@ -113,7 +113,7 @@ function toSprite({ ms, frames, loop }: Anim): Sprite {
   return { w: frames[0][0].length, h: frames[0].length, frames, ms: frames.length > 1 ? ms : 0, loop };
 }
 
-/* ── Cat: 24×24, faces right, 1.33 px per pixel (32 px tall) ──────────────
+/* ── Cat: 24×24, faces right, 1.67 px per pixel (40 px tall) ──────────────
  * s ink-soft: fur    # ink: belly, muzzle, socks    f ink-faint: inner ears, nose
  * b bg: eyes, gaps, the outline     a accent: the collar (and hearts, z's)
  * Every frame is a body with one of two heads stamped where the pose holds it.

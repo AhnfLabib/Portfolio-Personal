@@ -207,6 +207,8 @@ export function Companions(props: {
   /** Re-runs the cursor check from the last pointer position (set by the tracking effect). */
   const recheckRef = useRef<(() => void) | null>(null);
   const clicks = useRef(0);
+  /** A reaction bubble (the love ♥, the click "!") is showing: chatter neither replaces nor clears it. */
+  const reactingRef = useRef(false);
 
   // The wrapper fills the card, so its box is the cat's territory.
   useLayoutEffect(() => {
@@ -262,10 +264,26 @@ export function Companions(props: {
     };
   }, [reduceMotion, timers]);
 
+  /** Cursor chatter: yields to a reaction bubble that is showing. */
   const say = useCallback(
     (word: string) => {
+      if (reactingRef.current) return;
       setBubble(word);
       timers.after("bubble", BUBBLE_MS, () => setBubble(null));
+    },
+    [timers],
+  );
+
+  /** A reaction bubble, on its own timer so the cursor's comings and goings cannot cut it short. */
+  const sayReact = useCallback(
+    (word: string) => {
+      timers.cancel("bubble");
+      reactingRef.current = true;
+      setBubble(word);
+      timers.after("reactBubble", BUBBLE_MS, () => {
+        reactingRef.current = false;
+        setBubble(null);
+      });
     },
     [timers],
   );
@@ -303,6 +321,17 @@ export function Companions(props: {
         chatter();
       });
 
+    // The cursor went far (or out of the window): chatter stops, and after 1–2 s the cat wanders on.
+    const leave = () => {
+      timers.cancel("chatter");
+      timers.cancel("bubble");
+      if (!reactingRef.current) setBubble(null);
+      timers.after("release", between(RELEASE_MS), () => {
+        const cur = wanderRef.current;
+        if (cur?.phase === "attend") commitRef.current?.(stepWander(cur, timers.now(), boundsOf(sizeRef.current), Math.random));
+      });
+    };
+
     const track = (p: Point) => {
       const el = buttonRef.current;
       const s = wanderRef.current;
@@ -314,14 +343,7 @@ export function Companions(props: {
       zone = zoneFor(p, box);
       const now = timers.now();
       if (zone === "far") {
-        if (was === "far") return;
-        timers.cancel("chatter");
-        timers.cancel("bubble");
-        setBubble(null);
-        timers.after("release", between(RELEASE_MS), () => {
-          const cur = wanderRef.current;
-          if (cur?.phase === "attend") commitRef.current?.(stepWander(cur, timers.now(), boundsOf(sizeRef.current), Math.random));
-        });
+        if (was !== "far") leave();
         return;
       }
       if (was === "far") {
@@ -363,13 +385,25 @@ export function Companions(props: {
           if (last) track(last);
         });
     };
+    // Leaving the window sends no further pointermove, so treat it as a far move.
+    const onOut = (e: PointerEvent) => {
+      if (e.relatedTarget !== null || e.pointerType === "touch") return;
+      cancelAnimationFrame(raf);
+      raf = 0;
+      last = null;
+      if (zone === "far") return;
+      zone = "far";
+      leave();
+    };
     window.addEventListener("pointermove", onMove, { passive: true });
+    document.addEventListener("pointerout", onOut, { passive: true });
     recheckRef.current = () => {
       if (last) track(last);
     };
     return () => {
       recheckRef.current = null;
       window.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerout", onOut);
       cancelAnimationFrame(raf);
       for (const key of TRACKING) timers.cancel(key);
       setPaw(false);
@@ -403,9 +437,9 @@ export function Companions(props: {
     lastLoveTick.current = loveTick;
     setLove(true);
     timers.after("love", LOVE_MS, () => setLove(false));
-    say("♥");
+    sayReact("♥");
     hold(LOVE_MS);
-  }, [loveTick, timers, say, hold]);
+  }, [loveTick, timers, sayReact, hold]);
 
   // Petting is state, not ambient motion: it shows even under reduced motion.
   useEffect(() => {
@@ -419,7 +453,7 @@ export function Companions(props: {
     e.stopPropagation();
     const n = clicks.current++;
     const next = n === 0 ? { pose: "hop-react" as const, ms: HOP_REACT_MS } : REACTIONS[(n - 1) % REACTIONS.length];
-    if (n === 0) say("!");
+    if (n === 0) sayReact("!");
     timers.cancel("react");
     setReaction(null);
     if (next.pose === "purr") startPurr();

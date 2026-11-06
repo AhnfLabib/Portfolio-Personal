@@ -275,6 +275,13 @@ describe("love mode", () => {
       "how many girlfriends has he had",
       "is he seeing anyone",
       "any crushes?",
+      "is he single?",
+      "is ahnaf taken",
+      "does he have a lover",
+      "any romance?",
+      "does he date",
+      "is he engaged",
+      "significant other?",
       // Documented positive: the regex stays simple; love mode only changes tone and the cat.
       "I love your projects",
     ]) {
@@ -283,7 +290,7 @@ describe("love mode", () => {
   });
 
   it("isLoveQuestion: ordinary questions do not match", () => {
-    for (const q of ["what do you do", "where does Ahnaf work?", "what are his partnerships", "lovely site", "skills?"]) {
+    for (const q of ["what do you do", "where does Ahnaf work?", "what are his partnerships", "lovely site", "skills?", "beloved tools", "gloves"]) {
       expect(isLoveQuestion(q), q).toBe(false);
     }
   });

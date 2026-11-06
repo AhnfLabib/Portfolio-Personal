@@ -358,6 +358,29 @@ describe("Companions", () => {
       expect(["walk", "sleep"]).toContain(t.cat());
     });
 
+    it("the pointer leaving the window while near counts as far: it walks on after 1–2 s, chatter stops", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const t = setup();
+      advance(100);
+      pointer(CAT_RECT.x + CAT_RECT.w + 100, CAT_RECT.y + 16); // near
+      expect(t.cat()).toBe("look-r");
+      act(() => void document.dispatchEvent(new MouseEvent("pointerout", { relatedTarget: null })));
+      advance(2100);
+      expect(t.cat()).not.toMatch(/^look-/);
+      advance(30_000);
+      expect(t.bubble()).toBeNull(); // no chatter once it has left
+    });
+
+    it("a pointerout into another element (relatedTarget set) is not leaving the window", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const t = setup();
+      advance(100);
+      pointer(CAT_RECT.x + CAT_RECT.w + 100, CAT_RECT.y + 16);
+      act(() => void document.dispatchEvent(new MouseEvent("pointerout", { relatedTarget: document.body })));
+      advance(20_000);
+      expect(t.cat()).toBe("look-r");
+    });
+
     it("close (< 40 px): at most two 8 px steps toward the cursor, then a 300 ms paw swipe at most every 2 s", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
       const t = setup();
@@ -560,6 +583,21 @@ describe("Companions", () => {
       expect(t.cat()).toBe("love");
       advance(1);
       expect(t.cat()).not.toBe("love");
+    });
+
+    it("the ♥ bubble outlasts the cursor leaving and is not overwritten by chatter", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const t = setup();
+      pointer(CAT_RECT.x - 100, CAT_RECT.y); // near: chatter armed for 4 s
+      advance(3000);
+      t.update({ loveTick: 1 });
+      expect(t.bubble()).toBe("♥");
+      advance(1100); // chatter fires mid-heart
+      expect(t.bubble()).toBe("♥");
+      pointer(CAT_RECT.x - 500, CAT_RECT.y); // far
+      expect(t.bubble()).toBe("♥");
+      advance(400); // past 1500 ms after the heart appeared
+      expect(t.bubble()).toBeNull();
     });
 
     it("does not fire on mount", () => {

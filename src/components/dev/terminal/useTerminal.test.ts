@@ -52,7 +52,6 @@ describe("useTerminal", () => {
     expect(state().active).toBe(false);
     expect(state().lines).toEqual(IDLE_LINES);
     expect(state().showHint).toBe(false);
-    expect(state().mood).toBe("idle");
     expect(state().busy).toBe(false);
     expect(state().input).toBe("");
   });
@@ -106,7 +105,6 @@ describe("useTerminal", () => {
     expect(state().lines).toHaveLength(base);
     expect(state().lines[base - 1]).toEqual({ kind: "prompt", text: "$ help" });
     expect(state().busy).toBe(true);
-    expect(state().mood).toBe("thinking");
     act(() => vi.advanceTimersByTime(50));
     expect(state().lines).toHaveLength(base + 1);
     act(() => vi.advanceTimersByTime(50));
@@ -260,18 +258,16 @@ describe("useTerminal", () => {
     expect(state().skin).toBe("hacker");
   });
 
-  it("ask: busy during fetch, offline line on failure, mood confused", async () => {
+  it("ask: busy during fetch, offline line on failure", async () => {
     const pending = deferred<Response>();
     const fetch = vi.fn(() => pending.promise) as unknown as typeof globalThis.fetch;
     const { state, run } = setup({ reduceMotion: true, storage: null, fetch });
     run("ask what do you do?");
     expect(state().busy).toBe(true);
-    expect(state().mood).toBe("thinking");
     expect(fetch).toHaveBeenCalledOnce();
     await act(async () => pending.reject(new Error("network")));
     expect(state().busy).toBe(false);
     expect(state().lines.at(-1)).toEqual({ kind: "error", text: OFFLINE_LINE });
-    expect(state().mood).toBe("confused");
   });
 
   it("asking: true from the ask's start until its line is appended; never for other commands", async () => {
@@ -329,17 +325,15 @@ describe("useTerminal", () => {
     expect(fetch).not.toHaveBeenCalled();
     expect(state().busy).toBe(false);
     expect(state().lines.at(-1)).toEqual({ kind: "error", text: OFFLINE_LINE });
-    expect(state().mood).toBe("confused");
   });
 
-  it("ask: answer line on success, mood happy", async () => {
+  it("ask: answer line on success", async () => {
     const fetch = vi.fn(async () => Response.json({ answer: "i build agents" })) as unknown as typeof globalThis.fetch;
     const { state, api } = setup({ reduceMotion: true, storage: null, fetch });
     act(() => api().setInput("ask hi"));
     await act(async () => api().submit());
     expect(state().busy).toBe(false);
     expect(state().lines.at(-1)).toEqual({ kind: "text", text: "i build agents" });
-    expect(state().mood).toBe("happy");
   });
 
   it("loveTick: bumped with the answer line when the answer is in love mode", async () => {
@@ -376,7 +370,6 @@ describe("useTerminal", () => {
     await act(async () => api().submit());
     expect(fetch).not.toHaveBeenCalled();
     expect(state().lines.at(-1)).toEqual({ kind: "error", text: CAP_LINE });
-    expect(state().mood).toBe("confused");
   });
 
   it("submit while busy is ignored (no second prompt line)", () => {
@@ -390,32 +383,12 @@ describe("useTerminal", () => {
     expect(state().lines.filter((l) => l.kind === "prompt" && l.text === "$ help")).toHaveLength(1);
   });
 
-  it("pet bumps petTick and sets happy", () => {
+  it("pet bumps petTick", () => {
     vi.useFakeTimers();
     const { state, run } = setup();
     expect(state().petTick).toBe(0);
     run("pet");
     expect(state().petTick).toBe(1);
-    expect(state().mood).toBe("happy");
-    act(() => vi.advanceTimersByTime(1499));
-    expect(state().mood).toBe("happy");
-    act(() => vi.advanceTimersByTime(1));
-    expect(state().mood).toBe("idle");
-  });
-
-  it("moods: typing while active with input, confused for 2000ms after a failed command", () => {
-    vi.useFakeTimers();
-    const { state, api, run } = setup();
-    act(() => api().setInput("he"));
-    expect(state().mood).toBe("idle"); // not active
-    act(() => api().activate());
-    expect(state().mood).toBe("typing");
-    run("nope");
-    expect(state().mood).toBe("confused");
-    act(() => vi.advanceTimersByTime(1999));
-    expect(state().mood).toBe("confused");
-    act(() => vi.advanceTimersByTime(1));
-    expect(state().mood).toBe("idle");
   });
 
   it("open effect opens a new tab", () => {

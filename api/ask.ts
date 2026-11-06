@@ -29,7 +29,7 @@ export function checkRate(ip: string, now: number, store: Map<string, RateEntry>
 export type AskMode = "love" | "normal";
 
 const LOVE_WORDS =
-  /\b(love[sd]?|girlfriends?|gf|partner|crush(?:es)?|prono|sadiya|dating|seeing\s+anyone|relationship|wife|marry|married|valentine)\b/i;
+  /\b(love[sd]?|girlfriends?|gf|partner|crush(?:es)?|prono|sadiya|dating|seeing\s+anyone|relationship|wife|marry|married|valentine|single|taken|lovers?|romance|romantic|date[sd]?|engaged|fianc[eé]e?|significant\s+other)\b/i;
 
 /**
  * True when the question is about Ahnaf's love life or his girlfriend. Deliberately simple:
