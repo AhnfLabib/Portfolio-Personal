@@ -1,14 +1,34 @@
 import { describe, it, expect } from "vitest";
 import { SKINS } from "./commands";
-import { AHNAF, CAT, CAT_SHADES, PALETTE, toRects, type AhnafPose, type CatPose, type Sprite } from "./sprites";
+import * as sprites from "./sprites";
+import { CAT, CAT_SHADES, PALETTE, toRects, type CatPose, type Sprite } from "./sprites";
 
-const AHNAF_POSES: AhnafPose[] = ["idle", "blink", "turn", "typing", "thinking", "happy", "confused", "shades"];
-const CAT_POSES: CatPose[] = ["sit", "tail-flick", "groom", "stretch", "yawn", "sleep", "look", "walk", "hop", "purr", "shades"];
+const CAT_POSES: CatPose[] = [
+  "sit",
+  "tail-flick",
+  "groom",
+  "stretch",
+  "yawn",
+  "sleep",
+  "look",
+  "walk",
+  "hop",
+  "purr",
+  "shades",
+  "look-l",
+  "look-r",
+  "look-up",
+  "paw",
+  "hop-react",
+  "slow-blink",
+  "think",
+  "happy",
+  "love",
+];
 
 function allSprites(): { name: string; sprite: Sprite; maxW: number; maxH: number }[] {
   const out: { name: string; sprite: Sprite; maxW: number; maxH: number }[] = [];
   for (const skin of SKINS) {
-    for (const pose of AHNAF_POSES) out.push({ name: `ahnaf/${skin}/${pose}`, sprite: AHNAF[skin][pose], maxW: 32, maxH: 32 });
     for (const pose of CAT_POSES) {
       out.push({ name: `cat/${skin}/${pose}`, sprite: CAT[skin][pose], maxW: 32, maxH: 24 });
       out.push({ name: `cat-shades/${skin}/${pose}`, sprite: CAT_SHADES[skin][pose], maxW: 32, maxH: 24 });
@@ -21,9 +41,12 @@ const text = (s: Sprite, i = 0) => s.frames[i].join("\n");
 const distinct = (s: Sprite) => new Set(s.frames.map((f) => f.join("\n"))).size;
 
 describe("sprites", () => {
+  it("only the cat remains: no Ahnaf sprite is exported", () => {
+    expect(Object.keys(sprites)).not.toContain("AHNAF");
+  });
+
   it("every pose exists for every skin", () => {
     for (const skin of SKINS) {
-      expect(Object.keys(AHNAF[skin]).sort()).toEqual([...AHNAF_POSES].sort());
       expect(Object.keys(CAT[skin]).sort()).toEqual([...CAT_POSES].sort());
       expect(Object.keys(CAT_SHADES[skin]).sort()).toEqual([...CAT_POSES].sort());
     }
@@ -46,14 +69,12 @@ describe("sprites", () => {
   });
 
   it("main fills are light: ink and ink-soft outnumber ink-faint", () => {
-    for (const [who, s] of [["ahnaf", AHNAF.default.idle], ["cat", CAT.default.sit]] as const) {
-      const t = text(s);
-      const count = (c: string) => t.split(c).length - 1;
-      expect(count("#") + count("s"), who).toBeGreaterThan(count("f") * 5);
-    }
+    const t = text(CAT.default.sit);
+    const count = (c: string) => t.split(c).length - 1;
+    expect(count("#") + count("s")).toBeGreaterThan(count("f") * 5);
   });
 
-  it("every frame is rectangular and within bounds; Ahnaf is 32 rows, the cat 24", () => {
+  it("every frame is rectangular and within bounds; the cat is 24×24", () => {
     for (const { name, sprite: s, maxW, maxH } of allSprites()) {
       expect(s.w, name).toBeLessThanOrEqual(maxW);
       expect(s.h, name).toBeLessThanOrEqual(maxH);
@@ -64,7 +85,6 @@ describe("sprites", () => {
       }
     }
     for (const skin of SKINS) {
-      for (const pose of AHNAF_POSES) expect([AHNAF[skin][pose].w, AHNAF[skin][pose].h]).toEqual([32, 32]);
       for (const pose of CAT_POSES) expect([CAT[skin][pose].w, CAT[skin][pose].h]).toEqual([24, 24]);
     }
   });
@@ -90,34 +110,6 @@ describe("sprites", () => {
     }
   });
 
-  it("Ahnaf: breathing idle, typing hands, thought dots, a bouncing grin, a tilted '?'", () => {
-    const a = AHNAF.default;
-    const frames = (p: AhnafPose) => [a[p].frames.length, a[p].ms];
-    expect(frames("idle")).toEqual([2, 1200]);
-    expect(a.idle.frames[1]).toEqual([".".repeat(32), ...a.idle.frames[0].slice(0, -1)]); // a 1-px breath
-    expect(frames("blink")).toEqual([2, 1200]); // a blink keeps breathing
-    expect(frames("turn")).toEqual([2, 1200]);
-    expect(frames("typing")[0]).toBe(2);
-    expect(frames("thinking")[0]).toBe(3);
-    // the dots fill in one by one
-    const accents = a.thinking.frames.map((f) => f.slice(0, 4).join("").split("a").length - 1);
-    expect(accents[0]).toBeLessThan(accents[1]);
-    expect(accents[1]).toBeLessThan(accents[2]);
-    expect(frames("happy")[0]).toBe(2);
-    expect(a.happy.frames[1].slice(0, 30)).toEqual(a.happy.frames[0].slice(1, 31)); // bounce: up a pixel
-    expect(frames("confused")[0]).toBe(2);
-    expect(text(a.confused)).toContain("a");
-  });
-
-  it("Ahnaf keeps the hair swoop, round glasses, goatee and a hoodie with accent drawstrings", () => {
-    const idle = AHNAF.default.idle.frames[0];
-    expect(idle.slice(1, 9).join("")).toMatch(/s{10,}/); // hair mass
-    expect(idle.slice(3, 7).join("")).toMatch(/#{3,}/); // the shine along the swoop
-    expect(idle[12]).toMatch(/b{4}#+b{4}/); // two round dark frames
-    expect(idle.slice(20, 23).join("")).toMatch(/ff/); // goatee
-    expect(idle[30]).toContain("a"); // drawstring tips
-  });
-
   it("cat: 4-frame walk at 150 ms, sit sways with an ear twitch, groom ×3, stretch ×2, yawn ×2, sleep breathes, hop crouches first", () => {
     const c = CAT.default;
     expect([c.walk.frames.length, c.walk.ms]).toEqual([4, 150]);
@@ -141,14 +133,12 @@ describe("sprites", () => {
 
   it("poses differ from each other (the shades skin wears shades everywhere, so it is exempt)", () => {
     for (const skin of SKINS.filter((s) => s !== "shades")) {
-      expect(new Set(AHNAF_POSES.map((p) => text(AHNAF[skin][p]))).size, skin).toBe(AHNAF_POSES.length);
       expect(new Set(CAT_POSES.map((p) => text(CAT[skin][p]))).size, skin).toBe(CAT_POSES.length);
     }
   });
 
   it("skins actually change the silhouette", () => {
     for (const skin of SKINS.filter((s) => s !== "default")) {
-      expect(AHNAF[skin].idle.frames, skin).not.toEqual(AHNAF.default.idle.frames);
       expect(CAT[skin].sit.frames, skin).not.toEqual(CAT.default.sit.frames);
     }
   });
@@ -163,7 +153,49 @@ describe("sprites", () => {
       // the lenses are bg-dark whatever the skin does to the fur
       expect(text(CAT_SHADES[skin].sit)).toMatch(/b{10}/);
     }
-    expect(text(AHNAF.default.shades)).not.toEqual(text(AHNAF.default.idle));
+  });
+
+  it("look-l is look-r mirrored; look-up raises the eyes; paw is a 300 ms one-shot swipe; hop-react leaves the ground", () => {
+    for (const skin of SKINS) {
+      const c = CAT[skin];
+      c["look-r"].frames.forEach((f, i) => expect(c["look-l"].frames[i], `${skin} #${i}`).toEqual(f.map((r) => [...r].reverse().join(""))));
+    }
+    const c = CAT.default;
+    expect(c["look-up"].frames[0]).not.toEqual(c.sit.frames[0]);
+    expect([c.paw.loop, c.paw.frames.length * c.paw.ms]).toEqual([false, 300]);
+    // the swiping paw reaches further forward (right) than the sitting cat does
+    const right = (f: string[]) => Math.max(...f.map((r) => r.replace(/[.b]+$/, "").length - 1));
+    expect(right(c.paw.frames[1])).toBeGreaterThan(right(c.sit.frames[0]));
+    expect(c["hop-react"].loop).toBe(false);
+    const top = (f: string[]) => f.findIndex((r) => /[^.]/.test(r));
+    expect(Math.min(...c["hop-react"].frames.map(top))).toBeLessThan(top(c.sit.frames[0]));
+    expect(c["slow-blink"].loop).toBe(false);
+    expect(c["slow-blink"].frames.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("think: three 400 ms frames, the thought dots filling in above the head, eyes up", () => {
+    const t = CAT.default.think;
+    expect([t.frames.length, t.ms]).toEqual([3, 400]);
+    const accents = t.frames.map((f) => f.slice(0, 11).join("").split("a").length - 1);
+    expect(accents[0]).toBeLessThan(accents[1]);
+    expect(accents[1]).toBeLessThan(accents[2]);
+  });
+
+  it("happy: ears up (the head higher than sitting) for a short beat", () => {
+    const top = (f: string[]) => f.findIndex((r) => /[^.]/.test(r));
+    expect(top(CAT.default.happy.frames[0])).toBeLessThan(top(CAT.default.sit.frames[0]));
+  });
+
+  it("love: 2–3 frames at 500 ms, a blush on both cheeks and small hearts rising", () => {
+    const l = CAT.default.love;
+    expect(l.ms).toBe(500);
+    expect(l.frames.length).toBeGreaterThanOrEqual(2);
+    expect(l.frames.length).toBeLessThanOrEqual(3);
+    // two blush pixels on the face (row 10, cheeks), apart from the collar
+    for (const f of l.frames) expect(f[10].split("a").length - 1).toBe(2);
+    // hearts rise: the topmost accent pixel above the head moves up between frames
+    const topHeart = (f: string[]) => f.findIndex((r) => r.slice(0, 11).includes("a"));
+    expect(topHeart(l.frames[1])).toBeLessThan(topHeart(l.frames[0]));
   });
 
   it("purr shows hearts; sleep shows z's", () => {

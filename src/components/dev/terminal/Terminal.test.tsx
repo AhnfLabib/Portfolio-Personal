@@ -46,8 +46,29 @@ describe("Terminal", () => {
     for (const line of IDLE_LINES) expect(within(t.log()).getByText(line.text)).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByText(/^try:/)).toBeNull();
-    expect(t.container.querySelector('svg[data-sprite="ahnaf"]')).not.toBeNull();
+    expect(t.container.querySelector('svg[data-sprite="ahnaf"]')).toBeNull();
     expect(t.container.querySelector('svg[data-sprite="cat"]')).not.toBeNull();
+  });
+
+  it("clicking (or pressing Enter on) the cat reacts without activating the terminal", async () => {
+    const t = setup();
+    const cat = screen.getByRole("button", { name: "the cat" });
+    await t.user.click(cat);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(t.container.querySelector("[data-bubble]")).toHaveTextContent("!");
+    expect(t.card()).toHaveAttribute("tabindex", "0");
+    cat.focus();
+    await t.user.keyboard("{Enter}");
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("the cat comes after the input (and hint links) in tab order; tabbing to it keeps the terminal active", async () => {
+    const t = setup();
+    await t.activate();
+    const cat = screen.getByRole("button", { name: "the cat" });
+    for (let i = 0; i < 8 && document.activeElement !== cat; i++) await t.user.tab();
+    expect(cat).toHaveFocus();
+    expect(t.input()).toBeInTheDocument(); // still active: focus stayed inside the card
   });
 
   it("click activates: textbox focused, hint line visible", async () => {

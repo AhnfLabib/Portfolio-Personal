@@ -9,6 +9,8 @@ export interface TerminalState {
   lines: Line[];
   input: string;
   busy: boolean;
+  /** An `ask` is in flight: from its start until its answer line is appended. */
+  asking: boolean;
   skin: SkinName;
   shades: boolean;
   mood: Mood;
@@ -54,6 +56,7 @@ type Action =
   | { type: "start"; input: string }
   | { type: "append"; lines: Line[] }
   | { type: "done" }
+  | { type: "asking"; value: boolean }
   | { type: "clear" }
   | { type: "skin"; skin: SkinName }
   | { type: "shades" }
@@ -96,8 +99,10 @@ function reducer(s: Internal, a: Action): Internal {
       return { ...s, lines: [...s.lines, ...a.lines] };
     case "done":
       return { ...s, busy: false };
+    case "asking":
+      return { ...s, asking: a.value };
     case "clear":
-      return { ...s, lines: [], busy: false };
+      return { ...s, lines: [], busy: false, asking: false };
     case "skin":
       return { ...s, skin: a.skin };
     case "shades":
@@ -143,6 +148,7 @@ function init(storage: Storage | null): Internal {
     lines: IDLE_LINES,
     input: "",
     busy: false,
+    asking: false,
     skin,
     shades: false,
     petTick: 0,
@@ -248,6 +254,7 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
     const runAsk = async (question: string) => {
       const gen = r.gen;
       const d = depsRef.current;
+      dispatch({ type: "asking", value: true });
       let result: AskResult;
       try {
         result = await ask(question, {
@@ -260,6 +267,7 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
       }
       if (gen !== r.gen) return;
       dispatch({ type: "append", lines: [askLine(result)] });
+      dispatch({ type: "asking", value: false });
       finish(result.ok);
     };
 

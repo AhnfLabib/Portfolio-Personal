@@ -1,23 +1,37 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import type { SkinName } from "./commands";
-import type { Mood } from "./useTerminal";
-import { AHNAF, CAT, CAT_SHADES, PALETTE, toRects, type AhnafPose, type CatPose, type Sprite } from "./sprites";
-import { holdWander, initialWander, noticeWander, stepWander, type WanderState } from "./wander";
+import { CAT, CAT_SHADES, PALETTE, toRects, type CatPose, type Sprite } from "./sprites";
+import { attendWander, holdWander, initialWander, stepTowardWander, stepWander, type WanderState } from "./wander";
 import { boundsOf, catBox, type Size } from "./layout";
+import { facingFor, zoneFor, type Point, type Zone } from "./proximity";
 
-const BLINK_EVERY_MS: readonly [number, number] = [3000, 4000];
-const BLINK_MS = 150;
-const TURN_EVERY_MS: readonly [number, number] = [8000, 12_000];
-const TURN_MS = 1500;
 const PURR_MS = 2000;
-const NOTICE_CHANCE = 0.6; // how often the cat reacts when the visitor starts typing
 const SETTLE_MS = 80; // each leg's transition finishes this much before the leg ends
 const HOP_CROUCH_MS = CAT.default.hop.ms; // the crouch frame shows before the cat leaves the ground
-// Ambient-motion timer keys; purr is state, so it is not among them.
-const AMBIENT = ["breath", "blink", "blink-end", "turn", "turn-end", "wander", "ahnaf-frame", "cat-frame"];
-const BREATH_MS = AHNAF.default.idle.ms;
-/** Poses whose two frames are the breath: they follow one shared breathing clock, so switching between them never pops. */
-const BREATHING: ReadonlySet<AhnafPose> = new Set(["idle", "blink", "turn", "shades"]);
+// Cursor nearby
+const LOOK_UP_PX = 24; // the cursor this far above the cat's top: it looks up
+const RELEASE_MS: readonly [number, number] = [1000, 2000]; // after the cursor leaves, then it wanders on
+const CHATTER_MS: readonly [number, number] = [4000, 10_000];
+const CHATTER = ["meow", "mrrp", "...", "?"] as const;
+const BUBBLE_MS = 1500;
+const MAX_STEPS = 2; // per visit, 8 px each
+const STEP_MS = 300;
+const PAW_MS = CAT.default.paw.ms * CAT.default.paw.frames.length; // one 300 ms swipe
+const PAW_EVERY_MS = 2000;
+// An ask in flight, then the answer
+const HAPPY_MS = 1000;
+// Love (loveTick)
+const LOVE_MS = 4000;
+// Clicks: a hop and "!" the first time, then these in turn
+const HOP_REACT_MS = 600;
+const REACTIONS = [
+  { pose: "purr", ms: PURR_MS },
+  { pose: "slow-blink", ms: 1500 },
+  { pose: "stretch", ms: 1500 },
+] as const;
+// Ambient-motion timer keys (purr, reactions and bubbles are state, so they are not among them).
+const AMBIENT = ["wander", "cat-frame"];
+const TRACKING = ["chatter", "release", "paw", "step"];
 const PHASE_POSE: Record<WanderState["phase"], CatPose> = {
   walk: "walk",
   hop: "hop",
@@ -28,8 +42,13 @@ const PHASE_POSE: Record<WanderState["phase"], CatPose> = {
   stretch: "stretch",
   groom: "groom",
   tail: "tail-flick",
+  attend: "look-r",
 };
+/** Poses drawn already facing their way (look-l is look-r mirrored), so the sprite is never flipped for them. */
+const ORIENTED: ReadonlySet<CatPose> = new Set(["look-l", "look-r"]);
 const between = ([lo, hi]: readonly [number, number]) => lo + Math.random() * (hi - lo);
+type Gaze = "l" | "r" | "up";
+type Reaction = "hop-react" | "slow-blink" | "stretch";
 
 /**
  * One keyed scheduler for every timer the companions use; re-arming a key
@@ -37,7 +56,14 @@ const between = ([lo, hi]: readonly [number, number]) => lo + Math.random() * (h
  * `resume` re-arms them; `now` is a clock that stands still while paused.
  */
 function createTimers() {
-  type Entry = { fn: () => void; ms: number; repeat: boolean; left: number; due: number; id?: ReturnType<typeof setTimeout> };
+  type Entry = {
+    fn: () => void;
+    ms: number;
+    repeat: boolean;
+    left: number;
+    due: number;
+    id?: ReturnType<typeof setTimeout>;
+  };
   const entries = new Map<string, Entry>();
   let pausedAt: number | null = null;
   let pausedTotal = 0;
@@ -111,7 +137,6 @@ function useFrame(timers: Timers, key: string, sprite: Sprite, run: boolean, res
 const round = (n: number) => Math.round(n * 100) / 100;
 
 const PixelSprite = memo(function PixelSprite(props: {
-  who: "ahnaf" | "cat";
   sprite: Sprite;
   pose: string;
   frame?: number;
@@ -119,11 +144,11 @@ const PixelSprite = memo(function PixelSprite(props: {
   style?: CSSProperties;
   shades?: boolean;
 }) {
-  const { who, sprite, pose, frame = 0, className, style, shades } = props;
+  const { sprite, pose, frame = 0, className, style, shades } = props;
   const rects = useMemo(() => toRects(sprite.frames[frame] ?? sprite.frames[0], PALETTE), [sprite, frame]);
   return (
     <svg
-      data-sprite={who}
+      data-sprite="cat"
       data-pose={pose}
       data-frame={frame}
       data-shades={shades ? "true" : undefined}
@@ -140,28 +165,42 @@ const PixelSprite = memo(function PixelSprite(props: {
   );
 });
 
+/** Only a pointer that can hover gets the nearby-cursor behaviour; touch-only devices just tap. */
+const canHover = () => typeof window.matchMedia === "function" && window.matchMedia("(hover: hover)").matches;
+
 export function Companions(props: {
-  mood: Mood;
   skin: SkinName;
   shades: boolean;
-  active: boolean;
   petTick: number;
   reduceMotion: boolean;
+  /** An `ask` is in flight: the cat stops, faces the prompt and thinks; a happy beat when it ends. */
+  thinking: boolean;
+  /** Each change shows the love pose for 4 s with a ♥ bubble (wired to the AI answer in a later task). */
+  loveTick?: number;
+  /** Called on every click/tap of the cat (after its reaction); the hook for a later mini-game. */
+  onCatClick?: () => void;
 }) {
-  const { mood, skin, shades, active, petTick, reduceMotion } = props;
+  const { skin, shades, petTick, reduceMotion, thinking, loveTick = 0, onCatClick } = props;
   const [timers] = useState(createTimers);
-  const [breath, setBreath] = useState(0);
-  const [blink, setBlink] = useState(false);
-  const [turn, setTurn] = useState(false);
   const [wander, setWander] = useState<WanderState | null>(null);
   const [purr, setPurr] = useState(false);
+  const [reaction, setReaction] = useState<Reaction | null>(null);
+  const [bubble, setBubble] = useState<string | null>(null);
+  const [gaze, setGaze] = useState<Gaze>("r");
+  const [paw, setPaw] = useState(false);
+  const [stepping, setStepping] = useState(false);
+  const [happy, setHappy] = useState(false);
+  const [love, setLove] = useState(false);
   const [size, setSize] = useState<Size>({ w: 0, h: 0 });
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const sizeRef = useRef(size);
   const wanderRef = useRef<WanderState | null>(null);
   const commitRef = useRef<((next: WanderState) => void) | null>(null);
   const lastPetTick = useRef(petTick);
-  const moodRef = useRef(mood);
+  const lastLoveTick = useRef(loveTick);
+  const thinkingRef = useRef(thinking);
+  const clicks = useRef(0);
 
   // The wrapper fills the card, so its box is the cat's territory.
   useLayoutEffect(() => {
@@ -188,97 +227,218 @@ export function Companions(props: {
     };
   }, [timers]);
 
-  // Always-on ambient motion: Ahnaf's blinks and glances, the cat's wander loop.
+  // The wander loop (ambient motion).
   useEffect(() => {
     if (reduceMotion) return;
-    // blinks and head turns only show on the idle face
-    const occasionally = (key: string, every: readonly [number, number], ms: number, set: (on: boolean) => void) => {
-      const arm = () =>
-        timers.after(key, between(every), () => {
-          arm();
-          if (moodRef.current !== "idle") return;
-          set(true);
-          timers.after(`${key}-end`, ms, () => set(false));
-        });
-      arm();
-    };
-    timers.every("breath", BREATH_MS, () => setBreath((b) => 1 - b));
-    occasionally("blink", BLINK_EVERY_MS, BLINK_MS, setBlink);
-    occasionally("turn", TURN_EVERY_MS, TURN_MS, setTurn);
-
-    const commit = (next: WanderState) => {
+    const commit = (step: WanderState) => {
+      // while thinking it holds still facing the prompt (a hop in mid-air lands first)
+      const next = thinkingRef.current ? attendWander(step, timers.now(), -1) : step;
       wanderRef.current = next;
       setWander(next);
+      // attending the cursor holds until the tracking says otherwise
+      if (!Number.isFinite(next.until)) return timers.cancel("wander");
       timers.after("wander", Math.max(0, next.until - timers.now()), () =>
         commit(stepWander(wanderRef.current!, timers.now(), boundsOf(sizeRef.current), Math.random)),
       );
     };
     commitRef.current = commit;
-    commit(initialWander(timers.now(), boundsOf(sizeRef.current), Math.random, 0)); // starts just right of Ahnaf
+    commit(initialWander(timers.now(), boundsOf(sizeRef.current), Math.random, 0));
 
     return () => {
       for (const key of AMBIENT) timers.cancel(key);
       wanderRef.current = null;
       commitRef.current = null;
       setWander(null);
-      setBreath(0);
-      setBlink(false);
-      setTurn(false);
     };
   }, [reduceMotion, timers]);
 
-  // When the visitor starts typing the cat often notices: a napper wakes, a sitter looks over.
+  const say = useCallback(
+    (word: string) => {
+      setBubble(word);
+      timers.after("bubble", BUBBLE_MS, () => setBubble(null));
+    },
+    [timers],
+  );
+
+  /** Stop a roaming cat where it is for `ms` (a hop in mid-air lands first; one attending the cursor keeps attending). */
+  const hold = useCallback(
+    (ms: number) => {
+      const s = wanderRef.current;
+      if (!s || s.phase === "attend") return;
+      const held = holdWander(s, timers.now(), ms);
+      if (held !== s) commitRef.current?.(held);
+    },
+    [timers],
+  );
+
+  const startPurr = useCallback(() => {
+    setPurr(true);
+    timers.after("purr", PURR_MS, () => setPurr(false));
+    hold(PURR_MS);
+  }, [timers, hold]);
+
+  // The cursor nearby: track it on hover-capable pointers, with motion allowed.
   useEffect(() => {
-    const was = moodRef.current;
-    moodRef.current = mood;
-    if (mood !== "typing" || was === "typing" || !active) return;
+    if (reduceMotion || !canHover()) return;
+    let zone: Zone = "far";
+    let steps = 0;
+    let busyUntil = -Infinity; // a step or a swipe in progress
+    let lastPaw = -Infinity;
+    let raf = 0;
+    let last: Point | null = null;
+
+    const chatter = () =>
+      timers.after("chatter", between(CHATTER_MS), () => {
+        if (!thinkingRef.current) say(CHATTER[Math.min(CHATTER.length - 1, Math.floor(Math.random() * CHATTER.length))]);
+        chatter();
+      });
+
+    const track = (p: Point) => {
+      const el = buttonRef.current;
+      const s = wanderRef.current;
+      const commit = commitRef.current;
+      if (!el || !s || !commit) return;
+      const r = el.getBoundingClientRect(); // cheap, and right even mid-transition
+      const box = { x: r.left, y: r.top, w: r.width, h: r.height };
+      const was = zone;
+      zone = zoneFor(p, box);
+      const now = timers.now();
+      if (zone === "far") {
+        if (was === "far") return;
+        timers.cancel("chatter");
+        timers.after("release", between(RELEASE_MS), () => {
+          const cur = wanderRef.current;
+          if (cur?.phase === "attend") commitRef.current?.(stepWander(cur, timers.now(), boundsOf(sizeRef.current), Math.random));
+        });
+        return;
+      }
+      if (was === "far") {
+        timers.cancel("release");
+        steps = 0;
+        chatter();
+      }
+      if (thinkingRef.current) return; // busy thinking: it ignores the cursor
+      const facing = facingFor(p, box);
+      setGaze(p.y < box.y - LOOK_UP_PX ? "up" : facing < 0 ? "l" : "r");
+      if (now < busyUntil) return; // let the step or swipe finish
+      let next = attendWander(s, now, facing);
+      if (zone === "close" && next.phase === "attend") {
+        const off = p.x - (box.x + box.w / 2);
+        if (steps < MAX_STEPS && Math.abs(off) > box.w / 2) {
+          steps++;
+          next = stepTowardWander(next, now, facing, boundsOf(sizeRef.current));
+          busyUntil = now + STEP_MS;
+          setStepping(true);
+          timers.after("step", STEP_MS, () => setStepping(false));
+        } else if (now - lastPaw >= PAW_EVERY_MS) {
+          lastPaw = now;
+          busyUntil = now + PAW_MS;
+          setPaw(true);
+          timers.after("paw", PAW_MS, () => setPaw(false));
+        }
+      }
+      if (next !== s) commit(next);
+    };
+
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return;
+      last = { x: e.clientX, y: e.clientY };
+      if (!raf)
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          if (last) track(last);
+        });
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      cancelAnimationFrame(raf);
+      for (const key of TRACKING) timers.cancel(key);
+      setPaw(false);
+      setStepping(false);
+      setGaze("r");
+    };
+  }, [reduceMotion, timers, say]);
+
+  // An ask in flight: stop and think, facing the prompt; when it lands, a happy beat, then wander on.
+  useEffect(() => {
+    if (thinkingRef.current === thinking) return;
+    thinkingRef.current = thinking;
     const s = wanderRef.current;
-    if (!s || Math.random() >= NOTICE_CHANCE) return;
-    const next = noticeWander(s, timers.now());
-    if (next !== s) commitRef.current?.(next);
-  }, [mood, active, timers]);
+    if (thinking) {
+      timers.cancel("happy");
+      setHappy(false);
+      if (s) commitRef.current?.(s); // commit re-applies the thinking hold
+      return;
+    }
+    setHappy(true);
+    timers.after("happy", HAPPY_MS, () => setHappy(false));
+    if (s) commitRef.current?.(holdWander(s, timers.now(), HAPPY_MS));
+  }, [thinking, timers]);
+
+  // Love is state too: 4 s of it, with a heart.
+  useEffect(() => {
+    if (loveTick === lastLoveTick.current) return;
+    lastLoveTick.current = loveTick;
+    setLove(true);
+    timers.after("love", LOVE_MS, () => setLove(false));
+    say("♥");
+    hold(LOVE_MS);
+  }, [loveTick, timers, say, hold]);
 
   // Petting is state, not ambient motion: it shows even under reduced motion.
-  // A roaming cat stops where it is for the purr (a hop in mid-air lands first).
   useEffect(() => {
     if (petTick === lastPetTick.current) return;
     lastPetTick.current = petTick;
-    setPurr(true);
-    timers.after("purr", PURR_MS, () => setPurr(false));
-    const s = wanderRef.current;
-    if (s) {
-      const held = holdWander(s, timers.now(), PURR_MS);
-      if (held !== s) commitRef.current?.(held);
-    }
-  }, [petTick, timers]);
+    startPurr();
+  }, [petTick, startPurr]);
 
-  const ahnafPose: AhnafPose = shades
-    ? "shades"
-    : mood === "idle"
-      ? blink
-        ? "blink"
-        : turn
-          ? "turn"
-          : "idle"
-      : mood === "typing"
-        ? active
-          ? "typing" // eyes on the prompt, hands on the keys
-          : "idle"
-        : mood;
-  const ahnafSprite = AHNAF[skin][ahnafPose];
-  const breathes = BREATHING.has(ahnafPose);
-  const poseFrame = useFrame(timers, "ahnaf-frame", ahnafSprite, !reduceMotion && !breathes);
-  const ahnafFrame = reduceMotion ? 0 : breathes ? breath : poseFrame;
+  // Click/tap (and Enter/Space): a reaction in place. It never reaches the card, so the terminal stays as it is.
+  const onClick = (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const n = clicks.current++;
+    const next = n === 0 ? { pose: "hop-react" as const, ms: HOP_REACT_MS } : REACTIONS[(n - 1) % REACTIONS.length];
+    if (n === 0) say("!");
+    timers.cancel("react");
+    setReaction(null);
+    if (next.pose === "purr") startPurr();
+    else {
+      setReaction(next.pose);
+      timers.after("react", next.ms, () => setReaction(null));
+      hold(next.ms);
+    }
+    onCatClick?.();
+  };
 
   const roam = reduceMotion ? null : wander;
   const phase = roam?.phase ?? "sit";
-  const moving = phase === "walk" || phase === "hop";
-  const catPose: CatPose = moving ? PHASE_POSE[phase] : shades ? "shades" : purr ? "purr" : PHASE_POSE[phase];
+  const lookPose: CatPose = gaze === "up" ? "look-up" : gaze === "l" ? "look-l" : "look-r";
+  const catPose: CatPose =
+    phase === "hop"
+      ? "hop"
+      : (reaction ??
+        (love
+          ? "love"
+          : thinking
+            ? "think"
+            : happy
+              ? "happy"
+              : phase === "walk" || stepping
+                ? "walk"
+                : paw
+                  ? "paw"
+                  : purr && !shades
+                    ? "purr"
+                    : phase === "attend"
+                      ? lookPose
+                      : shades
+                        ? "shades"
+                        : PHASE_POSE[phase]));
   const catSprite = (shades ? CAT_SHADES : CAT)[skin][catPose];
   // every hop step crouches again: a new step restarts the hop's frames
   const catFrame = useFrame(timers, "cat-frame", catSprite, !reduceMotion, phase === "hop" ? roam?.since : null);
 
-  const facing = roam?.facing ?? 1;
+  const facing = ORIENTED.has(catPose) ? 1 : thinking ? -1 : (roam?.facing ?? 1);
   // Stable per facing, so the memoized cat sprite re-renders only on pose/frame/facing changes.
   const catSpriteStyle = useMemo<CSSProperties>(() => ({ transform: `scaleX(${facing})` }), [facing]);
   const { x, y } = catBox(roam ?? { edge: "top", x: 0 }, size);
@@ -293,29 +453,41 @@ export function Companions(props: {
         ? `transform ${Math.max(0, leg - SETTLE_MS)}ms linear`
         : phase === "hop"
           ? `transform ${Math.max(0, leg - HOP_CROUCH_MS - SETTLE_MS)}ms linear ${HOP_CROUCH_MS}ms`
-          : undefined,
+          : phase === "attend" && stepping
+            ? `transform ${STEP_MS - SETTLE_MS}ms linear`
+            : undefined,
   };
 
   return (
     <div ref={wrapperRef} className="pointer-events-none absolute inset-0">
-      <PixelSprite
-        who="ahnaf"
-        sprite={ahnafSprite}
-        pose={ahnafPose}
-        frame={ahnafFrame}
-        className="absolute left-4 bottom-full h-12 w-auto translate-y-2"
-      />
       <div className="absolute top-0 left-0" style={catBoxStyle}>
-        <PixelSprite
-          who="cat"
-          sprite={catSprite}
-          pose={catPose}
-          frame={catFrame}
-          shades={shades}
-          className="h-8 w-auto"
-          // the sprite faces right; mirror it (instantly, outside the leg's transition) to face left
-          style={catSpriteStyle}
-        />
+        {bubble && (
+          <span
+            data-bubble=""
+            aria-hidden="true"
+            className="absolute bottom-full left-1/2 mb-0.5 -translate-x-1/2 rounded-sm border border-line bg-surface px-1 py-0.5 font-mono text-[10px] leading-none whitespace-nowrap text-ink"
+          >
+            {bubble}
+          </span>
+        )}
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label="the cat"
+          data-cat=""
+          onClick={onClick}
+          className="pointer-events-auto block cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <PixelSprite
+            sprite={catSprite}
+            pose={catPose}
+            frame={catFrame}
+            shades={shades}
+            className="h-10 w-auto"
+            // the sprite faces right; mirror it (instantly, outside the leg's transition) to face left
+            style={catSpriteStyle}
+          />
+        </button>
       </div>
     </div>
   );

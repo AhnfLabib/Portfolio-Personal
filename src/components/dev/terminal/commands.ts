@@ -108,7 +108,7 @@ const REGISTRY: Record<string, Command> = {
         : out([], [{ type: "ask", question: arg }]),
   },
   skin: {
-    describe: "change the companions' look",
+    describe: "change the cat's look",
     run: (arg, ctx) => {
       const name = arg.toLowerCase();
       if (name === "") return out(skinList(ctx.skin));

@@ -274,6 +274,30 @@ describe("useTerminal", () => {
     expect(state().mood).toBe("confused");
   });
 
+  it("asking: true from the ask's start until its line is appended; never for other commands", async () => {
+    const pending = deferred<Response>();
+    const fetch = vi.fn(() => pending.promise) as unknown as typeof globalThis.fetch;
+    const { state, run } = setup({ reduceMotion: true, storage: null, fetch });
+    expect(state().asking).toBe(false);
+    run("help");
+    expect(state().asking).toBe(false);
+    run("ask what do you do?");
+    expect(state().asking).toBe(true);
+    await act(async () => pending.resolve(Response.json({ answer: "agents" })));
+    expect(state().lines.at(-1)).toEqual({ kind: "text", text: "agents" });
+    expect(state().asking).toBe(false);
+  });
+
+  it("asking: clear during an ask drops it", () => {
+    const pending = deferred<Response>();
+    const fetch = vi.fn(() => pending.promise) as unknown as typeof globalThis.fetch;
+    const { state, api, run } = setup({ reduceMotion: true, storage: null, fetch });
+    run("ask hi");
+    expect(state().asking).toBe(true);
+    act(() => api().clear());
+    expect(state().asking).toBe(false);
+  });
+
   it("ask: a rejection inside ask() maps to the offline line and clears busy", async () => {
     // ask() swallows fetch and storage errors itself, so force the guarded call to
     // throw through deps.now(), which runs inside it.

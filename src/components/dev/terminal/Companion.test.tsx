@@ -1,24 +1,25 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, act } from "@testing-library/react";
+import { render, act, cleanup as cleanupAll, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { Companions } from "./Companion";
 
 type Props = ComponentProps<typeof Companions>;
-const base: Props = { mood: "idle", skin: "default", shades: false, active: false, petTick: 0, reduceMotion: false };
+const base: Props = { skin: "default", shades: false, petTick: 0, reduceMotion: false, thinking: false };
 
 function setup(overrides: Partial<Props> = {}) {
   let props: Props = { ...base, ...overrides };
   const utils = render(<Companions {...props} />);
-  const svg = (who: "ahnaf" | "cat") => utils.container.querySelector(`svg[data-sprite="${who}"]`) as SVGSVGElement;
+  const svg = () => utils.container.querySelector('svg[data-sprite="cat"]') as SVGSVGElement;
+  const button = () => utils.getByRole("button", { name: "the cat" });
   return {
     ...utils,
-    ahnaf: () => svg("ahnaf").getAttribute("data-pose"),
-    ahnafFrame: () => svg("ahnaf").getAttribute("data-frame"),
-    cat: () => svg("cat").getAttribute("data-pose"),
-    ahnafSvg: () => svg("ahnaf"),
-    catSvg: () => svg("cat"),
-    catBox: () => svg("cat").parentElement as HTMLElement,
-    snapshot: () => [svg("ahnaf").getAttribute("data-pose"), svg("ahnaf").getAttribute("data-frame"), svg("cat").getAttribute("data-pose"), (svg("cat").parentElement as HTMLElement).style.transform, svg("cat").style.transform].join("|"),
+    cat: () => svg().getAttribute("data-pose"),
+    catSvg: svg,
+    button,
+    catBox: () => button().parentElement as HTMLElement,
+    bubble: () => utils.container.querySelector("[data-bubble]")?.textContent ?? null,
+    snapshot: () => [svg().getAttribute("data-pose"), svg().getAttribute("data-frame"), (button().parentElement as HTMLElement).style.transform, svg().style.transform].join("|"),
     update: (next: Partial<Props>) => {
       props = { ...props, ...next };
       utils.rerender(<Companions {...props} />);
@@ -34,123 +35,71 @@ function setHidden(value: boolean) {
   act(() => void document.dispatchEvent(new Event("visibilitychange")));
 }
 
+/** The cat's on-screen box (jsdom has no layout): 32 px square at (300, 100). */
+const CAT_RECT = { x: 300, y: 100, w: 32, h: 32 };
+let canHover = true;
+function stubMatchMedia() {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(hover: hover)" ? canHover : false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }));
+}
+/** Move the pointer to (x, y) and let the throttling frame run. */
+function pointer(x: number, y: number) {
+  act(() => void window.dispatchEvent(new MouseEvent("pointermove", { clientX: x, clientY: y })));
+  advance(20);
+}
+const pointerListeners = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.filter(([type]) => type === "pointermove").length;
+
 beforeEach(() => {
   vi.useFakeTimers();
   hidden = false;
+  canHover = true;
+  stubMatchMedia();
   vi.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
   // jsdom has no layout: give the card a desktop-sized box so the cat has room to roam
   vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(576);
   vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(175);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+    x: CAT_RECT.x, y: CAT_RECT.y, left: CAT_RECT.x, top: CAT_RECT.y, width: CAT_RECT.w, height: CAT_RECT.h,
+    right: CAT_RECT.x + CAT_RECT.w, bottom: CAT_RECT.y + CAT_RECT.h, toJSON: () => ({}),
+  } as DOMRect);
 });
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("Companions", () => {
-  it("renders two aria-hidden crisp svgs at the v2 sizes inside a card-sized wrapper", () => {
+  it("renders only the cat: one aria-hidden crisp 40 px svg in a labelled button that opts back into pointer events", () => {
     const t = setup();
     const wrapper = t.container.firstElementChild as HTMLElement;
     expect(wrapper.className).toBe("pointer-events-none absolute inset-0");
+    expect(t.container.querySelector('svg[data-sprite="ahnaf"]')).toBeNull();
     const svgs = t.container.querySelectorAll("svg");
-    expect(svgs).toHaveLength(2);
+    expect(svgs).toHaveLength(1);
+    const button = t.button();
+    expect(button).toHaveAttribute("type", "button");
+    expect(button).toHaveClass("pointer-events-auto");
+    expect(button).toContainElement(svgs[0] as unknown as HTMLElement);
     for (const s of svgs) {
       expect(s.getAttribute("aria-hidden")).toBe("true");
       expect(s.getAttribute("shape-rendering")).toBe("crispEdges");
       expect(s.getAttribute("viewBox")).toMatch(/^0 0 \d+ \d+$/);
       expect(s.querySelectorAll("rect").length).toBeGreaterThan(0);
     }
-    expect(t.ahnafSvg().getAttribute("class")).toContain("h-12");
-    expect(t.catSvg().getAttribute("class")).toContain("h-8");
+    expect(t.catSvg().getAttribute("class")).toContain("h-10"); // 40 px
   });
 
-  it("Ahnaf breathes on a 2400 ms cycle even while the card is inactive", () => {
-    const t = setup({ active: false });
-    expect(t.ahnafFrame()).toBe("0");
-    advance(1199);
-    expect(t.ahnafFrame()).toBe("0");
-    advance(1);
-    expect(t.ahnafFrame()).toBe("1");
-    advance(1200);
-    expect(t.ahnafFrame()).toBe("0");
-  });
-
-  it("Ahnaf blinks every 3–4 s for 150 ms, active or not", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const t = setup({ active: false });
-    advance(2999);
-    expect(t.ahnaf()).toBe("idle");
-    advance(1);
-    expect(t.ahnaf()).toBe("blink");
-    advance(150);
-    expect(t.ahnaf()).toBe("idle");
-    advance(2850); // 6000: next blink, 3000 ms after the last one started
-    expect(t.ahnaf()).toBe("blink");
-  });
-
-  it("the blink interval varies between 3000 and 4000 ms", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.999);
+  it("the cat starts roaming from mount: its pose changes within 5 s", () => {
     const t = setup();
-    advance(3990);
-    expect(t.ahnaf()).toBe("idle");
-    advance(10);
-    expect(t.ahnaf()).toBe("blink");
-  });
-
-  it("only blinks on the idle face", () => {
-    const t = setup({ mood: "thinking" });
-    for (let i = 0; i < 100; i++) {
-      advance(100);
-      expect(t.ahnaf()).toBe("thinking");
-    }
-  });
-
-  it("maps mood to pose; typing (only while active) looks at the prompt with hands moving", () => {
-    const t = setup();
-    for (const mood of ["idle", "thinking", "happy", "confused"] as const) {
-      t.update({ mood });
-      expect(t.ahnaf()).toBe(mood);
-    }
-    t.update({ mood: "typing" });
-    expect(t.ahnaf()).toBe("idle");
-    t.update({ mood: "typing", active: true });
-    expect(t.ahnaf()).toBe("typing");
-    const frames = new Set<string>();
-    for (let i = 0; i < 6; i++) {
-      advance(90);
-      frames.add(t.ahnafFrame()!);
-    }
-    expect([...frames].sort()).toEqual(["0", "1"]);
-  });
-
-  it("thinking cycles its thought dots over three frames; happy bounces", () => {
-    const t = setup({ mood: "thinking" });
-    const seen = [t.ahnafFrame()];
-    for (let i = 0; i < 3; i++) {
-      advance(400);
-      seen.push(t.ahnafFrame());
-    }
-    expect(seen).toEqual(["0", "1", "2", "0"]);
-    t.update({ mood: "happy" });
-    expect(t.ahnafFrame()).toBe("0");
-    advance(250);
-    expect(t.ahnafFrame()).toBe("1");
-  });
-
-  it("idle Ahnaf glances aside now and then", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const t = setup();
-    const seen = new Set<string>();
-    for (let i = 0; i < 100; i++) {
-      advance(100);
-      seen.add(t.ahnaf()!);
-    }
-    expect(seen).toContain("turn");
-    expect(seen).toContain("blink");
-  });
-
-  it("the cat starts roaming from mount, inactive: its pose changes within 5 s", () => {
-    const t = setup({ active: false });
     const first = t.cat();
     expect(first).toBe("sit");
     const seen = new Set<string>();
@@ -189,21 +138,16 @@ describe("Companions", () => {
     expect(t.catSvg().style.transform).toMatch(/^scaleX\((1|-1)\)$/);
   });
 
-  it("reduceMotion: static idle frames, no roaming, no bob, no blink, zero timers", () => {
+  it("reduceMotion: a static frame, no roaming, zero timers", () => {
     const t = setup({ reduceMotion: true });
     expect(vi.getTimerCount()).toBe(0);
     const before = t.snapshot();
-    expect(t.ahnaf()).toBe("idle");
-    expect(t.ahnafFrame()).toBe("0");
     expect(t.cat()).toBe("sit");
-    t.update({ mood: "thinking" });
-    t.update({ mood: "idle" });
     for (let i = 0; i < 600; i++) {
       advance(100);
       expect(t.snapshot()).toBe(before);
     }
     expect(t.catBox().style.transition).toBe("");
-    t.update({ active: true });
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -241,8 +185,12 @@ describe("Companions", () => {
     advance(20_000);
     expect(t.snapshot()).toBe(frozen);
     setHidden(false);
-    advance(1200);
-    expect(t.ahnafFrame()).toBe("1");
+    const after = new Set<string>();
+    for (let i = 0; i < 50; i++) {
+      advance(100);
+      after.add(t.snapshot());
+    }
+    expect(after.size).toBeGreaterThan(1);
   });
 
   it("petTick: purr with hearts in place for 2 s, then roams on", () => {
@@ -279,14 +227,12 @@ describe("Companions", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("shades: both wear them; the resting cat shows the shades pose, a walking cat keeps lenses on", () => {
-    const t = setup({ shades: true, mood: "happy" });
-    expect(t.ahnaf()).toBe("shades");
+  it("shades: the resting cat shows the shades pose, a walking cat keeps lenses on", () => {
+    const t = setup({ shades: true });
     expect(t.cat()).toBe("shades");
     t.update({ petTick: 1 });
     expect(t.cat()).toBe("shades");
     for (let i = 0; i < 1000 && t.cat() !== "walk"; i++) advance(10);
-    expect(t.ahnaf()).toBe("shades");
     expect(t.cat()).toBe("walk");
     expect(t.catSvg().getAttribute("data-shades")).toBe("true");
   });
@@ -334,21 +280,10 @@ describe("Companions", () => {
     expect(steps).toBeGreaterThanOrEqual(2);
   }, 30_000);
 
-  it("when the visitor starts typing, a napping cat wakes with a yawn", () => {
-    const t = setup({ active: true });
-    for (let i = 0; i < 700 && t.cat() !== "sleep"; i++) advance(100);
-    expect(t.cat()).toBe("sleep");
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    t.update({ mood: "typing" });
-    expect(t.cat()).toBe("yawn");
-  });
-
-  it("skin swaps both sprites", () => {
+  it("skin swaps the cat's sprite", () => {
     const t = setup();
-    const ahnaf = t.ahnafSvg().innerHTML;
     const cat = t.catSvg().innerHTML;
     t.update({ skin: "hacker" });
-    expect(t.ahnafSvg().innerHTML).not.toBe(ahnaf);
     expect(t.catSvg().innerHTML).not.toBe(cat);
   });
 
@@ -362,27 +297,282 @@ describe("Companions", () => {
     expect(x()).toBeLessThanOrEqual(120 - 16);
   });
 
-  it("Ahnaf keeps breathing through a blink: the breath frame does not reset", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.5); // blink at 3500 ms
-    const t = setup();
-    advance(3600); // breath toggled at 1200, 2400, 3600 → frame 1; blinking since 3500
-    expect(t.ahnaf()).toBe("blink");
-    expect(t.ahnafFrame()).toBe("1");
-    advance(100); // blink over at 3650
-    expect(t.ahnaf()).toBe("idle");
-    expect(t.ahnafFrame()).toBe("1");
-  });
-
   it("clears every timer and listener on unmount", () => {
     const remove = vi.spyOn(document, "removeEventListener");
     const removeWin = vi.spyOn(window, "removeEventListener");
-    const t = setup({ active: true });
+    const add = vi.spyOn(window, "addEventListener");
+    const t = setup();
     advance(5000);
+    pointer(CAT_RECT.x - 60, CAT_RECT.y + 16); // near: chatter and tracking timers armed
     t.update({ petTick: 1 });
     expect(vi.getTimerCount()).toBeGreaterThan(0);
     t.unmount();
     expect(vi.getTimerCount()).toBe(0);
     expect(remove.mock.calls.some(([type]) => type === "visibilitychange")).toBe(true);
     expect(removeWin.mock.calls.some(([type]) => type === "resize")).toBe(true);
+    expect(pointerListeners(add)).toBe(1);
+    expect(pointerListeners(removeWin)).toBe(1);
+    expect(removeWin.mock.calls.find(([type]) => type === "pointermove")![1]).toBe(add.mock.calls.find(([type]) => type === "pointermove")![1]);
+  });
+
+  describe("the cursor nearby", () => {
+    it("listens to pointermove on window, passively, only where the pointer can hover and motion is allowed", () => {
+      const add = vi.spyOn(window, "addEventListener");
+      const t = setup();
+      const call = add.mock.calls.find(([type]) => type === "pointermove")!;
+      expect(call[2]).toMatchObject({ passive: true });
+      t.unmount();
+      add.mockClear();
+      setup({ reduceMotion: true });
+      expect(pointerListeners(add)).toBe(0);
+      cleanupAll();
+      canHover = false; // touch-only
+      add.mockClear();
+      setup();
+      expect(pointerListeners(add)).toBe(0);
+    });
+
+    it("near (< 120 px): the cat stops and looks toward the cursor, flipping sides with it; far again: it walks on after 1–2 s", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const t = setup();
+      for (let i = 0; i < 1000 && t.cat() !== "walk"; i++) advance(10);
+      expect(t.cat()).toBe("walk");
+      pointer(CAT_RECT.x + CAT_RECT.w + 100, CAT_RECT.y + 16); // 100 px to the right
+      expect(t.cat()).toBe("look-r");
+      expect(t.catBox().style.transition).toBe(""); // stopped where it was
+      const held = t.catBox().style.transform;
+      advance(20_000); // attending holds indefinitely
+      expect(t.catBox().style.transform).toBe(held);
+      expect(t.cat()).toBe("look-r");
+      pointer(CAT_RECT.x - 80, CAT_RECT.y + 16); // to the left
+      expect(t.cat()).toBe("look-l");
+      expect(t.catSvg().style.transform).toBe("scaleX(1)"); // look-l is drawn mirrored already
+      pointer(CAT_RECT.x + 16, CAT_RECT.y - 60); // well above
+      expect(t.cat()).toBe("look-up");
+      pointer(CAT_RECT.x + 16, CAT_RECT.y - 130); // gone: far
+      expect(t.cat()).toBe("look-up");
+      advance(999);
+      expect(t.catBox().style.transform).toBe(held);
+      expect(t.cat()).toBe("look-up");
+      advance(1100); // 1–2 s later it wanders on
+      expect(["walk", "sleep"]).toContain(t.cat());
+    });
+
+    it("close (< 40 px): at most two 8 px steps toward the cursor, then a 300 ms paw swipe at most every 2 s", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const t = setup();
+      advance(100);
+      const x = () => Number(/translate\((-?[\d.]+)px/.exec(t.catBox().style.transform)![1]);
+      pointer(CAT_RECT.x + CAT_RECT.w + 80, CAT_RECT.y + 16); // near first
+      const x0 = x();
+      pointer(CAT_RECT.x + CAT_RECT.w + 30, CAT_RECT.y + 16); // close, to the right
+      expect(t.cat()).toBe("walk");
+      expect(x()).toBe(x0 + 8);
+      expect(t.catBox().style.transition).toMatch(/^transform \d+ms linear$/);
+      advance(300);
+      pointer(CAT_RECT.x + CAT_RECT.w + 31, CAT_RECT.y + 16);
+      expect(x()).toBe(x0 + 16);
+      advance(300);
+      pointer(CAT_RECT.x + CAT_RECT.w + 30, CAT_RECT.y + 16);
+      expect(x()).toBe(x0 + 16); // no third step
+      expect(t.cat()).toBe("paw");
+      advance(300);
+      expect(t.cat()).toBe("look-r");
+      pointer(CAT_RECT.x + CAT_RECT.w + 31, CAT_RECT.y + 16);
+      expect(t.cat()).toBe("look-r"); // paw cooling down
+      advance(1700);
+      pointer(CAT_RECT.x + CAT_RECT.w + 30, CAT_RECT.y + 16);
+      expect(t.cat()).toBe("paw");
+    });
+
+    it("while near, a bubble says meow / mrrp / ... / ? every 4–10 s and hides after 1.5 s; none once the cursor leaves", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const t = setup();
+      pointer(CAT_RECT.x - 100, CAT_RECT.y);
+      expect(t.bubble()).toBeNull();
+      advance(3900);
+      expect(t.bubble()).toBeNull();
+      advance(200); // 4000 ms after the cursor came near
+      expect(t.bubble()).toBe("meow");
+      const el = t.container.querySelector("[data-bubble]")!;
+      expect(el).toHaveAttribute("aria-hidden", "true");
+      expect(el).toHaveClass("font-mono", "text-[10px]", "bg-surface", "text-ink", "border", "border-line");
+      advance(1300);
+      expect(t.bubble()).toBe("meow");
+      advance(100); // 1500 ms after it appeared
+      expect(t.bubble()).toBeNull();
+      advance(2500); // the next one, 4000 ms after the last
+      expect(t.bubble()).toBe("meow");
+      advance(1500);
+      pointer(CAT_RECT.x - 500, CAT_RECT.y); // far
+      advance(30_000);
+      expect(t.bubble()).toBeNull();
+    });
+
+    it("the bubble words are the four from the spec, timed between 4 and 10 s", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.999);
+      const t = setup();
+      pointer(CAT_RECT.x - 100, CAT_RECT.y);
+      advance(9900);
+      expect(t.bubble()).toBeNull();
+      advance(100);
+      expect(t.bubble()).toBe("?");
+    });
+
+    it("ignores touch pointers and stops tracking under reduceMotion", () => {
+      const t = setup();
+      act(() => void window.dispatchEvent(Object.assign(new MouseEvent("pointermove", { clientX: CAT_RECT.x - 10, clientY: CAT_RECT.y }), { pointerType: "touch" })));
+      advance(20);
+      expect(t.cat()).not.toMatch(/^look-/);
+      t.update({ reduceMotion: true });
+      pointer(CAT_RECT.x - 10, CAT_RECT.y);
+      expect(t.cat()).toBe("sit");
+    });
+  });
+
+  describe("thinking (an ask in flight)", () => {
+    it("the cat stops, faces the prompt (left) and thinks, the dots cycling every 400 ms, ignoring the cursor", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const t = setup();
+      for (let i = 0; i < 1000 && t.cat() !== "walk"; i++) advance(10);
+      t.update({ thinking: true });
+      expect(t.cat()).toBe("think");
+      expect(t.catSvg().style.transform).toBe("scaleX(-1)");
+      expect(t.catBox().style.transition).toBe("");
+      const held = t.catBox().style.transform;
+      const frames = [t.catSvg().getAttribute("data-frame")];
+      for (let i = 0; i < 3; i++) {
+        advance(400);
+        frames.push(t.catSvg().getAttribute("data-frame"));
+      }
+      expect(frames).toEqual(["0", "1", "2", "0"]);
+      pointer(CAT_RECT.x + CAT_RECT.w + 30, CAT_RECT.y + 16); // close, to the right
+      advance(30_000);
+      expect(t.cat()).toBe("think");
+      expect(t.catSvg().style.transform).toBe("scaleX(-1)");
+      expect(t.catBox().style.transform).toBe(held);
+      expect(t.bubble()).toBeNull(); // no chatter while thinking
+    });
+
+    it("when the answer lands: a 1 s happy beat, then it wanders on", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const t = setup({ thinking: true });
+      advance(5000);
+      expect(t.cat()).toBe("think");
+      t.update({ thinking: false });
+      expect(t.cat()).toBe("happy");
+      advance(999);
+      expect(t.cat()).toBe("happy");
+      advance(1);
+      expect(t.cat()).not.toBe("happy");
+      advance(100);
+      expect(["walk", "sleep"]).toContain(t.cat());
+    });
+
+    it("a hop in mid-air lands first, then the cat thinks", () => {
+      let seed = 7;
+      vi.spyOn(Math, "random").mockImplementation(() => {
+        seed = (seed * 16807) % 2147483647;
+        return seed / 2147483647;
+      });
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
+      const t = setup();
+      for (let i = 0; i < 2000 && t.cat() !== "hop"; i++) advance(100);
+      expect(t.cat()).toBe("hop");
+      t.update({ thinking: true });
+      expect(t.cat()).toBe("hop");
+      advance(2000);
+      expect(t.cat()).toBe("think");
+      const held = t.catBox().style.transform;
+      advance(20_000);
+      expect(t.catBox().style.transform).toBe(held);
+    }, 30_000);
+
+    it("under reduceMotion it still thinks (a static frame), facing left", () => {
+      const t = setup({ reduceMotion: true, thinking: true });
+      expect(t.cat()).toBe("think");
+      expect(t.catSvg().style.transform).toBe("scaleX(-1)");
+    });
+  });
+
+  describe("love (loveTick)", () => {
+    it("a loveTick change shows the love pose for 4 s and a ♥ bubble for 1.5 s", () => {
+      const t = setup();
+      t.update({ loveTick: 1 });
+      expect(t.cat()).toBe("love");
+      expect(t.bubble()).toBe("♥");
+      advance(1500);
+      expect(t.bubble()).toBeNull();
+      expect(t.cat()).toBe("love");
+      advance(2499);
+      expect(t.cat()).toBe("love");
+      advance(1);
+      expect(t.cat()).not.toBe("love");
+    });
+
+    it("does not fire on mount", () => {
+      const t = setup({ loveTick: 3 });
+      expect(t.cat()).toBe("sit");
+      expect(t.bubble()).toBeNull();
+    });
+  });
+
+  describe("clicking the cat", () => {
+    it("first click: a hop and a '!' bubble; then purr, a slow blink and a stretch in turn", () => {
+      const onCatClick = vi.fn();
+      const t = setup({ onCatClick });
+      fireEvent.click(t.button());
+      expect(onCatClick).toHaveBeenCalledTimes(1);
+      expect(t.cat()).toBe("hop-react");
+      expect(t.bubble()).toBe("!");
+      advance(1500);
+      expect(t.bubble()).toBeNull();
+      fireEvent.click(t.button());
+      expect(t.cat()).toBe("purr");
+      advance(2000);
+      fireEvent.click(t.button());
+      expect(t.cat()).toBe("slow-blink");
+      advance(1500);
+      fireEvent.click(t.button());
+      expect(t.cat()).toBe("stretch");
+      advance(1500);
+      fireEvent.click(t.button());
+      expect(t.cat()).toBe("purr");
+    });
+
+    it("the click does not bubble to the card", () => {
+      const outer = vi.fn();
+      const t = render(
+        <div onClick={outer}>
+          <Companions {...base} />
+        </div>,
+      );
+      fireEvent.click(t.getByRole("button", { name: "the cat" }));
+      expect(outer).not.toHaveBeenCalled();
+    });
+
+    it("Enter and Space on the focused cat react like a click", async () => {
+      vi.useRealTimers();
+      const user = userEvent.setup();
+      const onCatClick = vi.fn();
+      const t = setup({ onCatClick });
+      t.button().focus();
+      await user.keyboard("{Enter}");
+      expect(onCatClick).toHaveBeenCalledTimes(1);
+      expect(t.cat()).toBe("hop-react");
+      expect(t.bubble()).toBe("!");
+      await user.keyboard(" ");
+      expect(onCatClick).toHaveBeenCalledTimes(2);
+      expect(t.cat()).toBe("purr");
+    });
+
+    it("under reduceMotion the reaction and its bubble still show", () => {
+      const t = setup({ reduceMotion: true });
+      fireEvent.click(t.button());
+      expect(t.cat()).toBe("hop-react");
+      expect(t.bubble()).toBe("!");
+      advance(1500);
+      expect(t.bubble()).toBeNull();
+    });
   });
 });

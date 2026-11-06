@@ -7,7 +7,8 @@ import {
   edgeLength,
   holdWander,
   initialWander,
-  noticeWander,
+  attendWander,
+  stepTowardWander,
   stepWander,
   wanderX,
   type WanderBounds,
@@ -243,16 +244,49 @@ describe("wanderX / holdWander", () => {
     expect(held).toMatchObject({ phase: "sit", edge: "top", x: 200, from: 200, since: 2000, until: 4000, sleepAt: 50_000 });
   });
 
-  it("typing wakes a napper with a yawn and turns a resting cat toward the prompt", () => {
-    const nap: WanderState = { ...walk, phase: "sleep", from: 200, x: 200, until: 20_000 };
-    expect(noticeWander(nap, 5000)).toMatchObject({ phase: "yawn", x: 200, since: 5000, until: 5000 + YAWN_MS });
-    const sitting: WanderState = { ...nap, phase: "groom" };
-    expect(noticeWander(sitting, 5000)).toMatchObject({ phase: "look", facing: -1, until: 5000 + LOOK_MS });
-    expect(noticeWander(walk, 2000)).toBe(walk);
-  });
-
   it("does not interrupt a hop", () => {
     const hop: WanderState = { ...walk, phase: "hop", edge: "right", hop: { to: "bottom", step: 1, steps: 2 } };
     expect(holdWander(hop, 2000, 2000)).toBe(hop);
+    expect(attendWander(hop, 2000, -1)).toBe(hop);
+  });
+});
+
+describe("attend", () => {
+  const walk: WanderState = { phase: "walk", edge: "top", from: 100, x: 300, facing: 1, since: 1000, until: 3000, sleepAt: 50_000 };
+
+  it("stops the cat where it is, facing the given way, until told otherwise", () => {
+    const a = attendWander(walk, 2000, -1);
+    expect(a).toMatchObject({ phase: "attend", edge: "top", x: 200, from: 200, facing: -1, since: 2000, until: Infinity, sleepAt: 50_000 });
+    expect(wanderX(a, 1_000_000)).toBe(200);
+    // re-attending only turns it; it stays put
+    expect(attendWander(a, 5000, 1)).toMatchObject({ phase: "attend", x: 200, facing: 1, since: 2000 });
+    expect(attendWander(a, 5000, -1)).toBe(a);
+  });
+
+  it("wakes a napper", () => {
+    const nap: WanderState = { ...walk, phase: "sleep", from: 300, x: 300, until: 20_000 };
+    expect(attendWander(nap, 4000, 1)).toMatchObject({ phase: "attend", x: 300 });
+  });
+
+  it("steps toward the cursor at most 8 px per step, along its edge and within bounds", () => {
+    const a = attendWander(walk, 2000, 1);
+    const s1 = stepTowardWander(a, 3000, 1, BOUNDS);
+    expect(s1).toMatchObject({ phase: "attend", from: 200, x: 208, facing: 1, until: Infinity });
+    const s2 = stepTowardWander(s1, 3300, -1, BOUNDS);
+    expect(s2).toMatchObject({ from: 208, x: 200, facing: -1 });
+    const atEnd = attendWander({ ...walk, phase: "sit", from: 544, x: 544 }, 0, 1);
+    expect(stepTowardWander(atEnd, 10, 1, BOUNDS).x).toBe(544);
+  });
+
+  it("leaving attend walks on (or naps when due)", () => {
+    const a = attendWander(walk, 2000, -1);
+    const next = stepWander(a, 4000, BOUNDS, mulberry32(3));
+    expect(["walk", "sleep"]).toContain(next.phase);
+    expect(next.since).toBe(4000);
+    expect(Number.isFinite(next.until)).toBe(true);
+    const late = stepWander({ ...a, sleepAt: 0 }, 4000, BOUNDS, mulberry32(3));
+    expect(late.phase).toBe("sleep");
+    const early = stepWander({ ...a, sleepAt: 1e9 }, 4000, BOUNDS, mulberry32(3));
+    expect(early.phase).toBe("walk");
   });
 });

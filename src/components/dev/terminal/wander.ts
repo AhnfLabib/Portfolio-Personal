@@ -15,10 +15,14 @@
  * Personality: it ambles (20–30 px/s) and mostly keeps heading the same way,
  * rests more than it walks, sometimes stops mid-walk to look at the visitor,
  * and naps for 10–15 s every 30–45 s, yawning when it wakes.
+ *
+ * `attend` is the cursor-nearby state: the cat holds still (until = Infinity)
+ * facing the visitor, may take a step or two toward them, and walks on once the
+ * component steps it again.
  */
 export type Edge = "top" | "right" | "bottom";
 export type RestPhase = "sit" | "stretch" | "groom" | "tail";
-export type WanderPhase = "walk" | RestPhase | "look" | "sleep" | "yawn" | "hop";
+export type WanderPhase = "walk" | RestPhase | "look" | "sleep" | "yawn" | "hop" | "attend";
 
 export interface WanderBounds {
   topWidth: number;
@@ -56,11 +60,12 @@ const KEEP_HEADING = 0.7; // a new walk mostly carries on the same way
 const LOOK_CHANCE = 0.25; // a walk ends in a glance at the visitor, then carries on
 const HOP_CHANCE = 0.5; // at the right-hand corner, hop to the other edge
 const MIN_WALK_PX = 12;
+/** One step toward a close cursor. */
+export const ATTEND_STEP_PX = 8;
 const RESTS: readonly RestPhase[] = ["sit", "stretch", "groom", "tail"];
 
 const between = (rng: () => number, [lo, hi]: readonly [number, number]) => lo + rng() * (hi - lo);
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-const isRest = (p: WanderPhase): p is RestPhase => (RESTS as readonly string[]).includes(p);
 
 export function edgeLength(edge: Edge, b: WanderBounds): number {
   const len = edge === "top" ? b.topWidth : edge === "bottom" ? b.bottomWidth : b.rightHeight;
@@ -106,11 +111,17 @@ export function holdWander(s: WanderState, now: number, ms: number): WanderState
   return settle(s, wanderX(s, now), now, "sit", ms);
 }
 
-/** The visitor started typing: a napping cat wakes with a yawn, a resting one looks toward the prompt (left). */
-export function noticeWander(s: WanderState, now: number): WanderState {
-  if (s.phase === "sleep") return settle(s, s.x, now, "yawn", YAWN_MS);
-  if (isRest(s.phase) || s.phase === "look") return settle(s, s.x, now, "look", LOOK_MS, -1);
-  return s;
+/** The cursor came near: stop where it is and face it, until told otherwise (a hop in mid-air finishes first). */
+export function attendWander(s: WanderState, now: number, facing: 1 | -1): WanderState {
+  if (s.phase === "hop") return s;
+  if (s.phase === "attend") return s.facing === facing && s.from === s.x ? s : { ...s, from: s.x, facing };
+  return settle(s, wanderX(s, now), now, "attend", Infinity, facing);
+}
+
+/** While attending, one small step (ATTEND_STEP_PX) along its edge toward the cursor. */
+export function stepTowardWander(s: WanderState, now: number, dir: 1 | -1, b: WanderBounds): WanderState {
+  const x = clamp(s.x + dir * ATTEND_STEP_PX, 0, edgeLength(s.edge, b));
+  return { ...s, phase: "attend", from: s.x, x, facing: dir, since: now, until: Infinity };
 }
 
 function walk(s: WanderState, x: number, now: number, b: WanderBounds, rng: () => number): WanderState {
@@ -181,6 +192,6 @@ export function stepWander(s: WanderState, now: number, b: WanderBounds, rng: ()
     return settle(s, x, now, rest, between(rng, REST_MS));
   }
 
-  // After a rest, a look, a yawn or a landing: walk on.
+  // After a rest, a look, a yawn, a landing or attending the cursor: walk on.
   return walk(s, x, now, b, rng);
 }

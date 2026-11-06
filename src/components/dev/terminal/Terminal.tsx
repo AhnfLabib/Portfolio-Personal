@@ -92,7 +92,10 @@ export default function Terminal() {
     if (log) log.scrollTop = log.scrollHeight;
   }, [state.lines, showPrompt, state.showHint]);
 
+  /** The cat is its own button: focusing or clicking it never activates the terminal. */
+  const onCat = (e: { target: EventTarget }) => (e.target as Element).closest("[data-cat]") !== null;
   const onFocus = (e: FocusEvent<HTMLDivElement>) => {
+    if (onCat(e)) return;
     api.activate();
     if (e.target === e.currentTarget) focusInput();
   };
@@ -139,14 +142,6 @@ export default function Terminal() {
       <p id={hintId} className="sr-only">
         Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves.
       </p>
-      <Companions
-        mood={state.mood}
-        skin={state.skin}
-        shades={state.shades}
-        active={state.active}
-        petTick={state.petTick}
-        reduceMotion={reduceMotion}
-      />
       <div className="overflow-hidden rounded-xl border border-line bg-surface text-left shadow-2xl shadow-black/40">
         <div className="flex items-center gap-2 border-b border-line bg-surface-2 px-4 py-3">
           <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
@@ -203,6 +198,14 @@ export default function Terminal() {
           )}
         </div>
       </div>
+      {/* After the log, so the cat's button comes after the input in tab order. */}
+      <Companions
+        skin={state.skin}
+        shades={state.shades}
+        petTick={state.petTick}
+        thinking={state.asking}
+        reduceMotion={reduceMotion}
+      />
     </div>
   );
 }
