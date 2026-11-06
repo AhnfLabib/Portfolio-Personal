@@ -192,11 +192,11 @@ export default function Terminal() {
           <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
           <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
           <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
-          <span className="ml-2 font-mono text-xs text-ink-faint">ahnaf@portfolio: ~</span>
+          <span className="ml-2 whitespace-nowrap font-mono text-xs text-ink-faint">ahnaf@portfolio: ~</span>
           {!state.active && !everActive && (
             <span
               data-testid="type-hint"
-              className="ml-auto font-mono text-xs text-ink-faint transition-opacity duration-200 motion-reduce:transition-none"
+              className="ml-auto hidden whitespace-nowrap font-mono text-xs text-ink-faint min-[23rem]:inline"
             >
               {hoverNone ? "tap to type" : "click to type"}
             </span>

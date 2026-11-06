@@ -438,6 +438,16 @@ describe("Terminal", () => {
     expect(screen.queryByTestId("type-hint")).toBeNull();
   });
 
+  it("keeps the title bar on one line and hides the label below the fit width", () => {
+    setup();
+    const hint = screen.getByTestId("type-hint");
+    expect(hint).toHaveClass("whitespace-nowrap");
+    expect(hint).toHaveClass("hidden");
+    expect(hint).toHaveClass("min-[23rem]:inline");
+    expect(hint).not.toHaveClass("transition-opacity");
+    expect(screen.getByText("ahnaf@portfolio: ~")).toHaveClass("whitespace-nowrap");
+  });
+
   it("says 'tap to type' on hover-none devices", () => {
     stubMatchMedia((q) => q.includes("prefers-reduced-motion") || q === "(hover: none)");
     try {
@@ -464,7 +474,9 @@ describe("Terminal", () => {
     expect(card).toHaveClass("rounded-xl", "transition-colors", "border-line", "hover:border-accent/60", "cursor-text");
     await t.activate();
     expect(card).toHaveClass("border-accent/60", "transition-colors");
-    expect(card).not.toHaveClass("border-line", "cursor-text");
+    expect(card).not.toHaveClass("border-line");
+    expect(card).not.toHaveClass("cursor-text");
+    expect(card).not.toHaveClass("hover:border-accent/60");
     expect(screen.getByRole("button", { name: "the cat" })).toHaveClass("cursor-pointer");
   });
 });
