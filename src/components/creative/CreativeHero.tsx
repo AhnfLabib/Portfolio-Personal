@@ -26,7 +26,7 @@ import { frameSrcSet } from "./frameSrc";
  * `lazy` marks the two frames below the phone fold.
  */
 const SLOTS: { cell: string; sizes: string; focus: string; lazy?: boolean }[] = [
-  { cell: "aspect-square sm:aspect-[4/3] lg:aspect-auto lg:min-h-0 lg:flex-1", sizes: "(min-width: 1024px) 84vw, 165vw", focus: "55% 50%" },
+  { cell: "aspect-square sm:aspect-[4/3] lg:aspect-auto lg:min-h-0 lg:flex-1", sizes: "(min-width: 1024px) 83vw, 165vw", focus: "55% 50%" },
   { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-2 lg:row-span-3 lg:row-start-1", sizes: "(min-width: 1024px) 42vw, 50vw", focus: "50% 50%" },
   { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-3 lg:row-start-1", sizes: "(min-width: 1024px) 30vw, 120vw", focus: "55% 50%" },
   { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-3 lg:row-start-2", sizes: "(min-width: 1024px) 30vw, 120vw", focus: "72% 50%", lazy: true },

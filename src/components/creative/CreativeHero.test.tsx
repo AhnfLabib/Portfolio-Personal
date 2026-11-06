@@ -70,7 +70,7 @@ describe("CreativeHero", () => {
     const srcset = large.getAttribute("srcset") ?? "";
     expect(srcset).toBe("/gallery/r4-02-800.jpg 800w, /gallery/r4-02-1200.jpg 1200w, /gallery/r4-02.jpg 1600w");
     expect(srcset.split(", ")[1]).toBe("/gallery/r4-02-1200.jpg 1200w");
-    expect(large).toHaveAttribute("sizes", "(min-width: 1024px) 84vw, 165vw");
+    expect(large).toHaveAttribute("sizes", "(min-width: 1024px) 83vw, 165vw");
     expect(large).toHaveAttribute("fetchpriority", "high");
     const html = readFileSync(resolve(__dirname, "../../../index.html"), "utf8");
     const preload = html.match(/<link\s+rel="preload"[^>]*>/s)?.[0] ?? "";
