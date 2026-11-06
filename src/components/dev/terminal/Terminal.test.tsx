@@ -99,6 +99,47 @@ describe("Terminal", () => {
     expect(screen.getByRole("button", { name: "the cat" })).toHaveFocus();
   });
 
+  it("choosing pet (or nope) hands focus back to the input, and the terminal stays active", async () => {
+    const t = setup();
+    const input = await t.activate();
+    await t.user.click(screen.getByRole("button", { name: "the cat" }));
+    await t.user.click(screen.getByRole("menuitem", { name: "pet" }));
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(input).toHaveFocus();
+    expect(t.card()).toHaveAttribute("data-active", "true");
+    await t.user.click(screen.getByRole("button", { name: "the cat" }));
+    await t.user.keyboard("{ArrowUp}{Enter}"); // nope
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(input).toHaveFocus();
+  });
+
+  it("Tab closes the menu and moves on past the cat; Shift+Tab lands before it, the terminal still active", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <Terminal />
+        <button type="button">after the hero</button>
+      </>,
+    );
+    const card = screen.getByLabelText("Interactive terminal. Click or press Enter to type commands.");
+    const cat = screen.getByRole("button", { name: "the cat" });
+    await user.click(card);
+    await user.click(cat);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    await user.tab();
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByRole("button", { name: "after the hero" })).toHaveFocus();
+
+    await user.click(card);
+    await user.click(cat);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    await user.tab({ shift: true });
+    expect(screen.queryByRole("menu")).toBeNull();
+    const before = document.activeElement as HTMLElement;
+    expect(before === screen.getByRole("textbox", { name: "terminal input" }) || before.closest("p")?.textContent?.startsWith("try:")).toBe(true);
+    expect(card).toHaveAttribute("data-active", "true");
+  });
+
   it("menu use never activates the terminal", async () => {
     const t = setup();
     expect(t.card()).toHaveAttribute("data-active", "false");

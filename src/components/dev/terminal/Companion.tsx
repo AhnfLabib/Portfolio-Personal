@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { SkinName } from "./commands";
 import { CAT, CAT_SHADES, PALETTE, toRects, type CatPose, type Sprite } from "./sprites";
 import { attendWander, holdWander, initialWander, stepTowardWander, stepWander, type WanderState } from "./wander";
-import { boundsOf, catBox, type Size } from "./layout";
+import { boundsOf, catBox, menuPlacement, type Size } from "./layout";
 import { CatMenu } from "./CatMenu";
 import { facingFor, zoneFor, type Point, type Zone } from "./proximity";
 
@@ -26,6 +26,9 @@ const LOVE_MS = 4000;
 // The click menu: "nope" is a slow blink; closing it any way leaves a beat in place before the cat wanders on
 const NOPE_MS = 1500;
 const MENU_CLOSE_MS = 600;
+/** The menu's anchor classes for each placement (see `menuPlacement`). */
+const MENU_SIDE = { top: "bottom-full mb-0.5", bottom: "top-full mt-0.5" } as const;
+const MENU_ALIGN = { left: "left-0", center: "left-1/2 -translate-x-1/2", right: "right-0" } as const;
 // Ambient-motion timer keys (purr, reactions and bubbles are state, so they are not among them).
 const AMBIENT = ["wander", "cat-frame"];
 const TRACKING = ["chatter", "release", "paw", "step"];
@@ -45,7 +48,6 @@ const PHASE_POSE: Record<WanderState["phase"], CatPose> = {
 const ORIENTED: ReadonlySet<CatPose> = new Set(["look-l", "look-r"]);
 const between = ([lo, hi]: readonly [number, number]) => lo + Math.random() * (hi - lo);
 type Gaze = "l" | "r" | "up";
-type Reaction = "slow-blink";
 
 /**
  * One keyed scheduler for every timer the companions use; re-arming a key
@@ -185,7 +187,7 @@ export function Companions(props: {
   const [timers] = useState(createTimers);
   const [wander, setWander] = useState<WanderState | null>(null);
   const [purr, setPurr] = useState(false);
-  const [reaction, setReaction] = useState<Reaction | null>(null);
+  const [blinking, setBlinking] = useState(false);
   const [bubble, setBubble] = useState<string | null>(null);
   const [gaze, setGaze] = useState<Gaze>("r");
   const [paw, setPaw] = useState(false);
@@ -208,6 +210,8 @@ export function Companions(props: {
   const reactingRef = useRef(false);
   /** The click menu is open: the cat holds still (looking up) and ignores the cursor. */
   const menuRef = useRef(false);
+  /** Where focus was in the card (outside the cat) when the menu opened: "pet" and "nope" hand it back. */
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   // The wrapper fills the card, so its box is the cat's territory.
   useLayoutEffect(() => {
@@ -454,26 +458,35 @@ export function Companions(props: {
 
   // Click/tap (and Enter/Space): the menu opens in place of a bubble. It never reaches the card, so the terminal stays as it is.
   const openMenu = () => {
+    const active = document.activeElement;
+    const card = wrapperRef.current?.closest('[role="group"]');
+    returnFocusRef.current =
+      active instanceof HTMLElement && card?.contains(active) && !active.closest("[data-cat]") ? active : null;
     menuRef.current = true;
     reactingRef.current = true;
     timers.cancel("bubble");
     timers.cancel("reactBubble");
     setBubble(null);
     timers.cancel("react");
-    setReaction(null);
+    setBlinking(false);
     setMenuOpen(true);
     const s = wanderRef.current;
     if (s) commitRef.current?.(s); // commit applies the menu's hold
   };
 
-  /** Close the menu; focus inside it goes back to the cat (so Tab moves on from there), and after a beat it wanders on. */
-  const closeMenu = useCallback(() => {
+  /**
+   * Close the menu, and after a beat it wanders on. Focus inside the menu goes back to the cat (so Escape lands
+   * on it and Tab moves on from there), or with `restore` to where it was in the card when the menu opened.
+   */
+  const closeMenu = useCallback((restore = false) => {
     if (!menuRef.current) return;
     menuRef.current = false;
     reactingRef.current = false;
     setMenuOpen(false);
+    const back = returnFocusRef.current;
+    returnFocusRef.current = null;
     const menu = wrapperRef.current?.querySelector('[role="menu"]');
-    if (menu?.contains(document.activeElement)) buttonRef.current?.focus();
+    if (menu?.contains(document.activeElement)) (restore && back?.isConnected ? back : buttonRef.current)?.focus();
     const s = wanderRef.current;
     if (s) commitRef.current?.(holdWander(s, timers.now(), MENU_CLOSE_MS));
     recheckRef.current?.(); // the cursor may still be near
@@ -490,15 +503,16 @@ export function Companions(props: {
     e.stopPropagation();
   };
 
+  const onMenuClose = useCallback(() => closeMenu(), [closeMenu]);
   const onMenuPet = () => {
-    closeMenu();
+    closeMenu(true);
     sayReact("♥");
     startPurr();
   };
   const onMenuNope = () => {
-    closeMenu();
-    setReaction("slow-blink");
-    timers.after("react", NOPE_MS, () => setReaction(null));
+    closeMenu(true);
+    setBlinking(true);
+    timers.after("react", NOPE_MS, () => setBlinking(false));
     hold(NOPE_MS);
   };
   const onMenuPlay = () => {
@@ -514,24 +528,25 @@ export function Companions(props: {
       ? "hop"
       : menuOpen
         ? "look-up"
-        : (reaction ??
-        (love
-          ? "love"
-          : thinking
-            ? "think"
-            : happy
-              ? "happy"
-              : phase === "walk" || stepping
-                ? "walk"
-                : paw
-                  ? "paw"
-                  : purr && !shades
-                    ? "purr"
-                    : phase === "attend"
-                      ? lookPose
-                      : shades
-                        ? "shades"
-                        : PHASE_POSE[phase]));
+        : blinking
+          ? "slow-blink"
+          : love
+            ? "love"
+            : thinking
+              ? "think"
+              : happy
+                ? "happy"
+                : phase === "walk" || stepping
+                  ? "walk"
+                  : paw
+                    ? "paw"
+                    : purr && !shades
+                      ? "purr"
+                      : phase === "attend"
+                        ? lookPose
+                        : shades
+                          ? "shades"
+                          : PHASE_POSE[phase];
   const catSprite = (shades ? CAT_SHADES : CAT)[skin][catPose];
   // every hop step crouches again: a new step restarts the hop's frames
   const catFrame = useFrame(timers, "cat-frame", catSprite, !reduceMotion, phase === "hop" ? roam?.since : null);
@@ -541,6 +556,7 @@ export function Companions(props: {
   const catSpriteStyle = useMemo<CSSProperties>(() => ({ transform: `scaleX(${facing})` }), [facing]);
   const { x, y } = catBox(roam ?? { edge: "top", x: 0 }, size);
   const leg = roam ? Math.round(roam.until - roam.since) : 0;
+  const menuAt = menuPlacement({ x, y }, size);
   const catBoxStyle: CSSProperties = {
     transform: `translate(${round(x)}px, ${round(y)}px)`,
     // Only during a leg, so a cat stopped mid-walk snaps to where it is instead
@@ -561,8 +577,12 @@ export function Companions(props: {
       {/* The cat and its menu share the [data-cat] subtree, which the terminal's focus/click handlers ignore. */}
       <div data-cat="" className="absolute top-0 left-0" style={catBoxStyle}>
         {menuOpen ? (
-          <div className="pointer-events-auto absolute bottom-full left-1/2 z-10 mb-0.5 -translate-x-1/2">
-            <CatMenu onPlay={onMenuPlay} onPet={onMenuPet} onNope={onMenuNope} onClose={closeMenu} />
+          <div
+            data-menu-align={menuAt.align}
+            data-menu-side={menuAt.side}
+            className={`pointer-events-auto absolute z-10 ${MENU_SIDE[menuAt.side]} ${MENU_ALIGN[menuAt.align]}`}
+          >
+            <CatMenu onPlay={onMenuPlay} onPet={onMenuPet} onNope={onMenuNope} onClose={onMenuClose} />
           </div>
         ) : (
           bubble && (

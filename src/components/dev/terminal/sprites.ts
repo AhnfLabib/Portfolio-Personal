@@ -30,7 +30,6 @@ export type CatPose =
   | "look-r"
   | "look-up"
   | "paw"
-  | "hop-react"
   | "slow-blink"
   | "think"
   | "happy"
@@ -273,8 +272,6 @@ const LOOK_HEAD: Partial<HeadSpec> = { kind: "side", col: 12 };
 /** The swiping paw: raised, then batting forward. */
 const SWIPE_UP: Stamp = [["##", "##"], 13, 20];
 const SWIPE_OUT: Stamp = [["###", "###"], 14, 20];
-/** Up in the air: the whole sitting cat (and its head, for the skins) lifted n pixels. */
-const liftCat = ({ frame, head: h }: CatFrame, n: number): CatFrame => ({ frame: lift(frame, n), head: { ...h, row: h.row - n } });
 
 /** Thought dots over the head: 2×2 ink, 2 px apart, each new one a row higher. */
 const THOUGHT: Stamp[] = [
@@ -381,11 +378,6 @@ const CAT_POSES: Record<CatPose, PoseDef> = {
     loop: false,
     frames: [sitFrame(TAIL_HIGH, LOOK_HEAD, NO_RIGHT_LEG, SWIPE_UP), sitFrame(TAIL_HOOK, LOOK_HEAD, NO_RIGHT_LEG, SWIPE_OUT)],
   },
-  // clicked the first time: startled, a hop straight up and down
-  "hop-react": (() => {
-    const startled = sitFrame(TAIL_HIGH, { mouth: ["b"] });
-    return { ms: 150, loop: false, frames: [startled, liftCat(startled, 3), startled] };
-  })(),
   // a slow blink (cat for "I like you"), with a little nod
   // an ask in flight: upright, looking up, the thought dots filling in one by one
   think: { ms: 400, frames: [1, 2, 3].map((n) => sitFrame(TAIL_DOWN, { eyes: "up" }, ...THOUGHT.slice(0, n))) },

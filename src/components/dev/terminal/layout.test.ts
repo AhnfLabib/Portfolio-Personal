@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CAT_H, CAT_W, TOP_START, boundsOf, catBox, type Size } from "./layout";
+import { CAT_H, CAT_W, TOP_START, boundsOf, catBox, menuPlacement, type Size } from "./layout";
 import { holdWander, initialWander, stepWander, type WanderState } from "./wander";
 
 function mulberry32(seed: number): () => number {
@@ -53,5 +53,22 @@ describe("layout", () => {
         }
       }
     }
+  });
+});
+
+describe("menuPlacement", () => {
+  const size: Size = { w: 576, h: 175 };
+  it("centres the menu over the cat, but keeps it on the card near the left and right ends", () => {
+    expect(menuPlacement({ x: 16, y: 100 }, size).align).toBe("left");
+    expect(menuPlacement({ x: 49, y: 100 }, size).align).toBe("left");
+    expect(menuPlacement({ x: 50, y: 100 }, size).align).toBe("center");
+    expect(menuPlacement({ x: 526, y: 100 }, size).align).toBe("center");
+    expect(menuPlacement({ x: 527, y: 100 }, size).align).toBe("right");
+  });
+  it("opens below a cat on the top track (above the card's top) and above it elsewhere", () => {
+    expect(menuPlacement(catBox({ edge: "top", x: 100 }, size), size).side).toBe("bottom");
+    expect(menuPlacement(catBox({ edge: "right", x: 0 }, size), size).side).toBe("bottom");
+    expect(menuPlacement(catBox({ edge: "right", x: 100 }, size), size)).toEqual({ align: "right", side: "top" });
+    expect(menuPlacement(catBox({ edge: "bottom", x: 200 }, size), size)).toEqual({ align: "center", side: "top" });
   });
 });

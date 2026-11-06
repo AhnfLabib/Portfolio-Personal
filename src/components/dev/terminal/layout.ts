@@ -49,3 +49,17 @@ export function catBox(s: Pick<WanderState, "edge" | "x">, size: Size): Box {
         : [cornerX(size.w), -CAT_H + clamp(s.x, b.rightHeight)];
   return { x, y, w: CAT_W, h: CAT_H };
 }
+
+/** How far in from either end of the card the cat's menu stops centring on it and lines up with the cat instead. */
+export const MENU_EDGE_PX = 50;
+export type MenuPlacement = { align: "left" | "center" | "right"; side: "top" | "bottom" };
+
+/**
+ * Where the cat's click menu opens, from the cat's box: centred over it unless
+ * that would push it off the card's left or right end; above it unless the cat
+ * is on the top track (its top above the card's), where it opens below instead.
+ */
+export function menuPlacement({ x, y }: Pick<Box, "x" | "y">, size: Size): MenuPlacement {
+  const align = x < MENU_EDGE_PX ? "left" : x > size.w - MENU_EDGE_PX ? "right" : "center";
+  return { align, side: y < 0 ? "bottom" : "top" };
+}

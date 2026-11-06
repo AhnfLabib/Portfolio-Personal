@@ -720,6 +720,54 @@ describe("Companions", () => {
       expect(t.cat()).toBe("purr");
     });
 
+    describe("placement: on the card, clear of its ends and its top", () => {
+      const at = (t: ReturnType<typeof setup>) => {
+        const [, x, y] = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/.exec(t.catBox().style.transform)!.map(Number);
+        return { x, y };
+      };
+      const anchor = (t: ReturnType<typeof setup>) => t.menu()!.parentElement as HTMLElement;
+      /** Let the cat roam (deterministically) until it rests where `where` says, then open the menu. */
+      const openWhere = (where: (p: { x: number; y: number }) => boolean) => {
+        vi.spyOn(Math, "random").mockReturnValue(0);
+        const t = setup();
+        for (let i = 0; i < 3000 && !(where(at(t)) && t.cat() !== "walk" && t.cat() !== "hop"); i++) advance(100);
+        expect(where(at(t))).toBe(true);
+        fireEvent.click(t.button());
+        return t;
+      };
+
+      it("at the start of the top track: below the cat, lined up with its left", () => {
+        const t = setup();
+        fireEvent.click(t.button());
+        expect(at(t)).toEqual({ x: 16, y: -40 });
+        expect(anchor(t)).toHaveAttribute("data-menu-align", "left");
+        expect(anchor(t)).toHaveAttribute("data-menu-side", "bottom");
+        expect(anchor(t)).toHaveClass("top-full", "left-0");
+        expect(anchor(t)).not.toHaveClass("-translate-x-1/2");
+      });
+
+      it("along the top track: below the cat, centred", () => {
+        const t = openWhere(({ x, y }) => y < 0 && x >= 50 && x <= 576 - 50);
+        expect(anchor(t)).toHaveAttribute("data-menu-align", "center");
+        expect(anchor(t)).toHaveAttribute("data-menu-side", "bottom");
+        expect(anchor(t)).toHaveClass("top-full", "left-1/2", "-translate-x-1/2");
+      });
+
+      it("on the right edge: above the cat, lined up with its right", () => {
+        const t = openWhere(({ x, y }) => y >= 0 && x > 576 - 50);
+        expect(anchor(t)).toHaveAttribute("data-menu-align", "right");
+        expect(anchor(t)).toHaveAttribute("data-menu-side", "top");
+        expect(anchor(t)).toHaveClass("bottom-full", "right-0");
+      });
+
+      it("along the bottom edge: above the cat, centred", () => {
+        const t = openWhere(({ x, y }) => y > 100 && x >= 50 && x <= 576 - 50);
+        expect(anchor(t)).toHaveAttribute("data-menu-align", "center");
+        expect(anchor(t)).toHaveAttribute("data-menu-side", "top");
+        expect(anchor(t)).toHaveClass("bottom-full");
+      });
+    });
+
     it("under reduceMotion the menu still opens and the cat looks up", () => {
       const t = setup({ reduceMotion: true });
       fireEvent.click(t.button());
