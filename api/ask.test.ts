@@ -290,7 +290,7 @@ describe("love mode", () => {
   });
 
   it("isLoveQuestion: ordinary questions do not match", () => {
-    for (const q of ["what do you do", "where does Ahnaf work?", "what are his partnerships", "lovely site", "skills?", "beloved tools", "gloves"]) {
+    for (const q of ["what do you do", "where does Ahnaf work?", "what are his partnerships", "lovely site", "skills?", "beloved tools", "gloves", "single page app", "what courses has he taken", "graduation date"]) {
       expect(isLoveQuestion(q), q).toBe(false);
     }
   });

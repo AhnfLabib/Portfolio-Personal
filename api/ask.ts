@@ -29,7 +29,12 @@ export function checkRate(ip: string, now: number, store: Map<string, RateEntry>
 export type AskMode = "love" | "normal";
 
 const LOVE_WORDS =
-  /\b(love[sd]?|girlfriends?|gf|partner|crush(?:es)?|prono|sadiya|dating|seeing\s+anyone|relationship|wife|marry|married|valentine|single|taken|lovers?|romance|romantic|date[sd]?|engaged|fianc[eé]e?|significant\s+other)\b/i;
+  /\b(love[sd]?|girlfriends?|gf|partner|crush(?:es)?|prono|sadiya|dating|seeing\s+anyone|relationship|wife|marry|married|valentine|lovers?|romance|romantic|engaged|fianc[eé]e?|significant\s+other)\b/i;
+
+// "single", "taken" and "date" are common dev words ("single page app", "courses taken",
+// "graduation date"), so they only count in a relationship phrasing.
+const LOVE_PHRASES =
+  /\b(?:is|was)\s+(?:he|ahnaf|labib)\s+(?:still\s+)?(?:single|taken)\b|\b(?:does|did|would)\s+(?:he|ahnaf|labib)\s+date\b|\bdate[sd]?\s+(?:anyone|someone|anybody)\b/i;
 
 /**
  * True when the question is about Ahnaf's love life or his girlfriend. Deliberately simple:
@@ -37,7 +42,7 @@ const LOVE_WORDS =
  */
 export function isLoveQuestion(q: string): boolean {
   // "who do you love" is covered by `love`.
-  return LOVE_WORDS.test(q);
+  return LOVE_WORDS.test(q) || LOVE_PHRASES.test(q);
 }
 
 /** The only code that knows Gemini's request/response shape. Throws on any failure. */
