@@ -17,6 +17,8 @@ export interface TerminalState {
   shades: boolean;
   mood: Mood;
   petTick: number;
+  /** Bumped when an `ask` answer comes back in love mode (the cat goes lovey). */
+  loveTick: number;
   showHint: boolean;
 }
 
@@ -56,7 +58,7 @@ type Action =
   | { type: "deactivate" }
   | { type: "input"; value: string }
   | { type: "start"; input: string }
-  | { type: "append"; lines: Line[] }
+  | { type: "append"; lines: Line[]; love?: boolean }
   | { type: "done" }
   | { type: "asking" }
   | { type: "asked"; ok: boolean }
@@ -99,7 +101,7 @@ function reducer(s: Internal, a: Action): Internal {
       };
     }
     case "append":
-      return { ...s, lines: [...s.lines, ...a.lines] };
+      return { ...s, lines: [...s.lines, ...a.lines], loveTick: a.love ? s.loveTick + 1 : s.loveTick };
     case "done":
       return { ...s, busy: false };
     case "asking":
@@ -158,6 +160,7 @@ function init(storage: Storage | null): Internal {
     skin,
     shades: false,
     petTick: 0,
+    loveTick: 0,
     showHint: false,
     flash: null,
     history: [],
@@ -272,7 +275,7 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
         result = { ok: false, reason: "offline" };
       }
       if (gen !== r.gen) return;
-      dispatch({ type: "append", lines: [askLine(result)] });
+      dispatch({ type: "append", lines: [askLine(result)], love: result.ok && result.mode === "love" });
       dispatch({ type: "asked", ok: result.ok });
       finish(result.ok);
     };

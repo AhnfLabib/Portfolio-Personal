@@ -203,6 +203,7 @@ export default function Terminal() {
         skin={state.skin}
         shades={state.shades}
         petTick={state.petTick}
+        loveTick={state.loveTick}
         thinking={state.asking}
         askOutcome={state.askOutcome}
         reduceMotion={reduceMotion}

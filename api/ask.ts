@@ -1,4 +1,4 @@
-import { buildSystemPrompt } from "./_context.js";
+import { LOVE_MODE_LINE, buildSystemPrompt } from "./_context.js";
 
 export const MODEL = "gemini-3.1-flash-lite";
 export const RATE_LIMIT = { perHour: 20 };
@@ -26,17 +26,31 @@ export function checkRate(ip: string, now: number, store: Map<string, RateEntry>
   return true;
 }
 
+export type AskMode = "love" | "normal";
+
+const LOVE_WORDS = /\b(love|girlfriend|gf|partner|crush|prono|sadiya|dating|relationship|wife|marry|married|valentine)\b/i;
+
+/**
+ * True when the question is about Ahnaf's love life or his girlfriend. Deliberately simple:
+ * "I love your projects" matches too, which is fine — love mode only changes the tone and the cat.
+ */
+export function isLoveQuestion(q: string): boolean {
+  return LOVE_WORDS.test(q) || /who\s+do\s+you\s+love/i.test(q);
+}
+
 /** The only code that knows Gemini's request/response shape. Throws on any failure. */
 export async function callProvider(
   question: string,
   deps: { fetch: typeof fetch; apiKey: string; signal: AbortSignal },
+  mode: AskMode = "normal",
 ): Promise<string> {
+  const system = [{ text: buildSystemPrompt() }, ...(mode === "love" ? [{ text: LOVE_MODE_LINE }] : [])];
   const send = (thinking: boolean) =>
     deps.fetch(ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": deps.apiKey },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: buildSystemPrompt() }] },
+        system_instruction: { parts: system },
         contents: [{ role: "user", parts: [{ text: question }] }],
         // Minimal thinking keeps latency low; the larger budget leaves room for any
         // reasoning tokens so a 120-word answer (capped in the system prompt) is never cut.
@@ -118,8 +132,9 @@ export async function handler(req: Request): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const answer = await callProvider(question, { fetch: globalThis.fetch, apiKey, signal: controller.signal });
-    return Response.json({ answer });
+    const mode: AskMode = isLoveQuestion(question) ? "love" : "normal";
+    const answer = await callProvider(question, { fetch: globalThis.fetch, apiKey, signal: controller.signal }, mode);
+    return Response.json({ answer, mode });
   } catch {
     return error("ask is unavailable", 502);
   } finally {

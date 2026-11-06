@@ -51,6 +51,15 @@ describe("ask", () => {
     await ask("", { fetch: vi.fn(), storage: s, now: new Date() });
     expect(readQuota(s, new Date()).count).toBe(0);
   });
+  it("askServer passes mode love through; a missing or unknown mode is normal", async () => {
+    const love = vi.fn().mockResolvedValue(Response.json({ answer: "aww", mode: "love" }));
+    expect(await askServer("prono?", { fetch: love })).toEqual({ ok: true, answer: "aww", mode: "love" });
+    const normal = vi.fn().mockResolvedValue(Response.json({ answer: "hi", mode: "normal" }));
+    expect(await askServer("hi", { fetch: normal })).toEqual({ ok: true, answer: "hi", mode: "normal" });
+    const odd = vi.fn().mockResolvedValue(Response.json({ answer: "hi", mode: 7 }));
+    expect(await askServer("hi", { fetch: odd })).toEqual({ ok: true, answer: "hi", mode: "normal" });
+  });
+
   it("askServer maps a rejecting fetch to offline immediately", async () => {
     const t = Date.now();
     const r = await askServer("hi", { fetch: vi.fn().mockRejectedValue(new Error("net")) });
@@ -64,7 +73,7 @@ describe("ask", () => {
     expect(await askServer("hi", { fetch: notJson })).toEqual({ ok: false, reason: "offline" });
     const good = vi.fn().mockResolvedValue(Response.json({ answer: "I build things." }));
     const signal = new AbortController().signal;
-    expect(await askServer("hi", { fetch: good, signal })).toEqual({ ok: true, answer: "I build things." });
+    expect(await askServer("hi", { fetch: good, signal })).toEqual({ ok: true, answer: "I build things.", mode: "normal" });
     expect(good).toHaveBeenCalledWith(
       "/api/ask",
       expect.objectContaining({
@@ -86,7 +95,7 @@ describe("ask", () => {
     const s = memStorage();
     const now = new Date("2026-11-05T10:00");
     const f = vi.fn().mockResolvedValue(Response.json({ answer: "hi" }));
-    expect(await ask("hi", { fetch: f, storage: s, now })).toEqual({ ok: true, answer: "hi" });
+    expect(await ask("hi", { fetch: f, storage: s, now })).toEqual({ ok: true, answer: "hi", mode: "normal" });
     expect(readQuota(s, now).count).toBe(1);
   });
   it("a non-OK response or a failed request refunds the question", async () => {
@@ -110,7 +119,7 @@ describe("ask", () => {
     await ask("hi", { fetch: vi.fn().mockResolvedValue(new Response("", { status: 503 })), storage: s, now });
     expect(readQuota(s, now).count).toBe(9);
     const ok = vi.fn().mockResolvedValue(Response.json({ answer: "yes" }));
-    expect(await ask("hi", { fetch: ok, storage: s, now })).toEqual({ ok: true, answer: "yes" });
+    expect(await ask("hi", { fetch: ok, storage: s, now })).toEqual({ ok: true, answer: "yes", mode: "normal" });
     expect(readQuota(s, now).count).toBe(10);
   });
 });

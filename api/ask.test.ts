@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import fn, { MODEL, RATE_LIMIT, callProvider, checkRate, handler } from "./ask.js";
-import { buildSystemPrompt } from "./_context.js";
+import fn, { MODEL, RATE_LIMIT, callProvider, checkRate, handler, isLoveQuestion } from "./ask.js";
+import { LOVE_MODE_LINE, buildSystemPrompt } from "./_context.js";
 
 const post = (body: unknown, ip = "1.1.1.1", extra: Record<string, string> = {}) =>
   new Request("http://x/api/ask", {
@@ -157,7 +157,7 @@ describe("provider", () => {
     res = await handler(post({ question: "  Where does Ahnaf work?  " }, freshIp()));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/json");
-    expect(await res.json()).toEqual({ answer: "He works at Bridge Builder Strategies." });
+    expect(await res.json()).toEqual({ answer: "He works at Bridge Builder Strategies.", mode: "normal" });
 
     const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`);
@@ -183,7 +183,7 @@ describe("provider", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const res = await handler(post({ question: "hi" }, freshIp()));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ answer: "He builds agents." });
+    expect(await res.json()).toEqual({ answer: "He builds agents.", mode: "normal" });
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     const [first, second] = fetchSpy.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)));
     expect(first.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "minimal" });
@@ -258,6 +258,68 @@ describe("provider", () => {
       signal: new AbortController().signal,
     });
     expect(answer).toBe("ab");
+  });
+});
+
+describe("love mode", () => {
+  it("isLoveQuestion: love-life questions match, case-insensitively", () => {
+    for (const q of [
+      "who is Prono?",
+      "tell me about sadiya",
+      "does ahnaf have a girlfriend",
+      "who do you love",
+      "Is he DATING anyone?",
+      "is he married?",
+      "SADIYA?",
+      // Documented positive: the regex stays simple; love mode only changes tone and the cat.
+      "I love your projects",
+    ]) {
+      expect(isLoveQuestion(q), q).toBe(true);
+    }
+  });
+
+  it("isLoveQuestion: ordinary questions do not match", () => {
+    for (const q of ["what do you do", "where does Ahnaf work?", "what are his partnerships", "lovely site", "skills?"]) {
+      expect(isLoveQuestion(q), q).toBe(false);
+    }
+  });
+
+  it("a love question gets the extra system line and mode love; others get mode normal and one line", async () => {
+    const fetchSpy = vi.fn(async () => geminiOk("She is his girlfriend! ♥"));
+    vi.stubGlobal("fetch", fetchSpy);
+    let res = await handler(post({ question: "who is Prono?" }, freshIp()));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ answer: "She is his girlfriend! ♥", mode: "love" });
+    let body = JSON.parse(String((fetchSpy.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+    expect(body.system_instruction).toEqual({ parts: [{ text: buildSystemPrompt() }, { text: LOVE_MODE_LINE }] });
+
+    res = await handler(post({ question: "what do you do" }, freshIp()));
+    expect(await res.json()).toEqual({ answer: "She is his girlfriend! ♥", mode: "normal" });
+    body = JSON.parse(String((fetchSpy.mock.calls[1] as unknown as [string, RequestInit])[1].body));
+    expect(body.system_instruction).toEqual({ parts: [{ text: buildSystemPrompt() }] });
+  });
+
+  it("the love-mode thinking retry keeps the love system line", async () => {
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("thinking not supported", { status: 400 }))
+      .mockResolvedValueOnce(geminiOk("aww"));
+    const answer = await callProvider(
+      "sadiya?",
+      { fetch: fetchSpy as unknown as typeof fetch, apiKey: "k", signal: new AbortController().signal },
+      "love",
+    );
+    expect(answer).toBe("aww");
+    const second = JSON.parse(String((fetchSpy.mock.calls[1][1] as RequestInit).body));
+    expect(second.system_instruction.parts[1]).toEqual({ text: LOVE_MODE_LINE });
+  });
+
+  it("the system prompt carries the girlfriend fact and the never-unprompted rule", () => {
+    const p = buildSystemPrompt();
+    expect(p).toContain('Girlfriend: Sadiya (nickname "Prono"). Ahnaf adores her.');
+    expect(p).toContain("Otherwise never bring her up unprompted.");
+    expect(LOVE_MODE_LINE).toMatch(/Fan-girl mode/);
+    expect(LOVE_MODE_LINE).toMatch(/120 words/);
   });
 });
 

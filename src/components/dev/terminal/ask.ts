@@ -11,8 +11,10 @@ export interface Quota {
   count: number;
 }
 
+export type AskMode = "love" | "normal";
+
 export type AskResult =
-  | { ok: true; answer: string }
+  | { ok: true; answer: string; mode: AskMode }
   | { ok: false; reason: "offline" | "cap" | "empty" | "long" };
 
 function localDay(now: Date): string {
@@ -90,9 +92,10 @@ export async function askServer(
     });
     if (!res.ok) return { ok: false, reason: "offline" };
     const body: unknown = await res.json();
-    const answer = typeof body === "object" && body !== null ? (body as { answer?: unknown }).answer : undefined;
+    const { answer, mode } = typeof body === "object" && body !== null ? (body as { answer?: unknown; mode?: unknown }) : {};
     if (typeof answer !== "string") return { ok: false, reason: "offline" };
-    return { ok: true, answer };
+    // An older server (or any unknown value) means a normal answer.
+    return { ok: true, answer, mode: mode === "love" ? "love" : "normal" };
   } catch {
     return { ok: false, reason: "offline" };
   }

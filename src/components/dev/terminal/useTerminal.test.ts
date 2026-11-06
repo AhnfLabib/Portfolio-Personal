@@ -342,6 +342,31 @@ describe("useTerminal", () => {
     expect(state().mood).toBe("happy");
   });
 
+  it("loveTick: bumped with the answer line when the answer is in love mode", async () => {
+    const fetch = vi.fn(async () => Response.json({ answer: "she is the best!", mode: "love" })) as unknown as typeof globalThis.fetch;
+    const { state, api } = setup({ reduceMotion: true, storage: null, fetch });
+    expect(state().loveTick).toBe(0);
+    act(() => api().setInput("ask who is prono?"));
+    await act(async () => api().submit());
+    expect(state().lines.at(-1)).toEqual({ kind: "text", text: "she is the best!" });
+    expect(state().loveTick).toBe(1);
+  });
+
+  it("loveTick: not bumped for a normal answer, a missing mode, or a failure", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ answer: "agents", mode: "normal" }))
+      .mockResolvedValueOnce(Response.json({ answer: "agents" }))
+      .mockResolvedValueOnce(new Response("boom", { status: 502 })) as unknown as typeof globalThis.fetch;
+    const { state, api } = setup({ reduceMotion: true, storage: null, fetch });
+    for (const q of ["ask what do you do", "ask hi", "ask sadiya?"]) {
+      act(() => api().setInput(q));
+      await act(async () => api().submit());
+    }
+    expect(state().lines.at(-1)).toEqual({ kind: "error", text: OFFLINE_LINE });
+    expect(state().loveTick).toBe(0);
+  });
+
   it("ask: cap line when the daily quota is used up", async () => {
     const storage = memStorage({ "portfolio-ask-quota": JSON.stringify({ date: "2026-11-05", count: 10 }) });
     const fetch = vi.fn() as unknown as typeof globalThis.fetch;

@@ -7,7 +7,12 @@ const RULES = [
   "Use plain text only: no markdown, and no lists unless the visitor asks for one.",
   "If the question is about anything else, reply in one sentence that you can only talk about Ahnaf, and suggest typing `help`.",
   "Never invent facts that are not in the context below. If you are unsure, say so.",
+  'If the question is about Ahnaf\'s love life, girlfriend, "Prono" or "Sadiya": answer like his excited best friend who is delighted to be asked — warm, playful, fan-girling, exclamation marks welcome, one or two hearts allowed, still at most 120 words, still only true facts (she is his girlfriend; he adores her; nothing else invented). Otherwise never bring her up unprompted.',
 ].join("\n");
+
+/** Extra system text sent only when the question is about Ahnaf's love life (see `isLoveQuestion`). */
+export const LOVE_MODE_LINE =
+  'The visitor just asked about Ahnaf\'s love life or his girlfriend Sadiya ("Prono"). Fan-girl mode: gush, but stay truthful and under 120 words.';
 
 /** Lines from Ahnaf's resume that the site content does not carry. No phone number. */
 const RESUME_FACTS = [
@@ -17,6 +22,7 @@ const RESUME_FACTS = [
   "Software: Visual Studio Code, AWS, Lex, Bedrock, RDS, Firebase, Supabase, Jupyter, Figma, Claude Code, Swing.",
   "Frameworks: ReactJS, VueJS, NextJS, NodeJS, Django, DynamoDB, Scikit-learn.",
   "Location: Indianapolis, IN.",
+  'Girlfriend: Sadiya (nickname "Prono"). Ahnaf adores her.',
   "Email: ahnaflabib212@gmail.com. LinkedIn: linkedin.com/in/ahnaflabib2026. GitHub: github.com/AhnfLabib. Website: ahnaflabib.com.",
 ].join("\n");
 

@@ -50,6 +50,7 @@ The terminal card in the Dev hero is interactive: click it (or Tab to it) and ty
 - Caps: 10 answered questions per day per visitor (counted in the browser; a failed or rate-limited ask is not counted), 20 per hour per IP (in the function), and 300 characters per question. The function also rejects POSTs from other sites' origins with 403.
 - Local dev: copy `.env.example` to `.env.local`, fill in the key, and run `vercel dev`, which serves the site and `/api` together. `.env.local` is git-ignored; `.env.example` is the template. Instead of filling `.env.local` by hand, you can run `vercel env pull .env.local` after `vercel link`; that only works if the key is also set for the **Development** environment in Vercel. Plain `npm run dev` does not serve `/api`, so `ask` is offline there.
 - Without the key the site works as usual; `ask` just prints `ask is offline right now — try 'help'`.
+- Asking about Ahnaf's girlfriend (Sadiya, "Prono") gets a fan-girl answer and a lovey cat.
 
 ## Structure
 

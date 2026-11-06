@@ -239,6 +239,42 @@ describe("Terminal", () => {
     expect(within(t.log()).queryByText("$ ask")).toBeNull();
   });
 
+  it("a love-mode answer prints the answer and the cat goes lovey (love pose, heart bubble)", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => Response.json({ answer: "Prono is his girlfriend and he adores her! ♥", mode: "love" }));
+    try {
+      window.localStorage.removeItem("portfolio-ask-quota");
+      const t = setup();
+      await t.activate();
+      await t.user.keyboard("ask who is Prono?{Enter}");
+      expect(await within(t.log()).findByText("Prono is his girlfriend and he adores her! ♥")).toBeInTheDocument();
+      expect(fetchSpy).toHaveBeenCalledOnce();
+      expect(t.container.querySelector('svg[data-sprite="cat"]')).toHaveAttribute("data-pose", "love");
+      expect(t.container.querySelector("[data-bubble]")).toHaveTextContent("♥");
+    } finally {
+      fetchSpy.mockRestore();
+      window.localStorage.removeItem("portfolio-ask-quota");
+    }
+  });
+
+  it("a normal answer does not put the cat in the love pose", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => Response.json({ answer: "He builds agents.", mode: "normal" }));
+    try {
+      window.localStorage.removeItem("portfolio-ask-quota");
+      const t = setup();
+      await t.activate();
+      await t.user.keyboard("ask what do you do{Enter}");
+      expect(await within(t.log()).findByText("He builds agents.")).toBeInTheDocument();
+      expect(t.container.querySelector('svg[data-sprite="cat"]')).not.toHaveAttribute("data-pose", "love");
+    } finally {
+      fetchSpy.mockRestore();
+      window.localStorage.removeItem("portfolio-ask-quota");
+    }
+  });
+
   it("external link lines open in a new tab", async () => {
     const t = setup();
     await t.activate();
