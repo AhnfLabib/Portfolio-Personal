@@ -118,10 +118,14 @@ export function attendWander(s: WanderState, now: number, facing: 1 | -1): Wande
   return settle(s, wanderX(s, now), now, "attend", Infinity, facing);
 }
 
-/** While attending, one small step (ATTEND_STEP_PX) along its edge toward the cursor. */
+/**
+ * While attending, one small step (ATTEND_STEP_PX) along its edge toward the
+ * cursor: `dir` is along the edge (on the right edge, down is +1), and only a
+ * horizontal edge turns the cat to face it.
+ */
 export function stepTowardWander(s: WanderState, now: number, dir: 1 | -1, b: WanderBounds): WanderState {
   const x = clamp(s.x + dir * ATTEND_STEP_PX, 0, edgeLength(s.edge, b));
-  return { ...s, phase: "attend", from: s.x, x, facing: dir, since: now, until: Infinity };
+  return { ...s, phase: "attend", from: s.x, x, facing: s.edge === "right" ? s.facing : dir, since: now, until: Infinity };
 }
 
 function walk(s: WanderState, x: number, now: number, b: WanderBounds, rng: () => number): WanderState {

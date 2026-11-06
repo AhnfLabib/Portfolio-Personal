@@ -276,11 +276,11 @@ const SWIPE_OUT: Stamp = [["###", "###"], 14, 20];
 /** Up in the air: the whole sitting cat (and its head, for the skins) lifted n pixels. */
 const liftCat = ({ frame, head: h }: CatFrame, n: number): CatFrame => ({ frame: lift(frame, n), head: { ...h, row: h.row - n } });
 
-/** Thought dots rising up and away from the head, small to large. */
+/** Thought dots over the head: 2×2 ink, 2 px apart, each new one a row higher. */
 const THOUGHT: Stamp[] = [
-  [["a"], 8, 9],
-  [["aa", "aa"], 5, 6],
-  [["aaa", "aaa"], 1, 2],
+  [["##", "##"], 2, 13],
+  [["##", "##"], 1, 17],
+  [["##", "##"], 0, 21],
 ];
 /** A blush on both cheeks of the sitting front head. */
 const BLUSH: Stamp[] = [
@@ -388,7 +388,7 @@ const CAT_POSES: Record<CatPose, PoseDef> = {
   })(),
   // a slow blink (cat for "I like you"), with a little nod
   // an ask in flight: upright, looking up, the thought dots filling in one by one
-  think: { ms: 400, frames: [1, 2, 3].map((n) => sitFrame(TAIL_DOWN, { row: 3, eyes: "up" }, ...THOUGHT.slice(0, n))) },
+  think: { ms: 400, frames: [1, 2, 3].map((n) => sitFrame(TAIL_DOWN, { eyes: "up" }, ...THOUGHT.slice(0, n))) },
   // the answer landed: ears up, eyes glad, tail high and twitching
   happy: { ms: 250, frames: [sitFrame(TAIL_HIGH, { row: 3, eyes: "glad" }), sitFrame(TAIL_HOOK, { row: 3, eyes: "glad" })] },
   // shy and lovey: a blush, half-closed eyes, small hearts drifting up

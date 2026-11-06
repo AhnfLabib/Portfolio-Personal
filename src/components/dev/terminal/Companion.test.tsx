@@ -403,8 +403,10 @@ describe("Companions", () => {
       expect(t.bubble()).toBeNull();
       advance(2500); // the next one, 4000 ms after the last
       expect(t.bubble()).toBe("meow");
-      advance(1500);
-      pointer(CAT_RECT.x - 500, CAT_RECT.y); // far
+      advance(1300);
+      expect(t.bubble()).toBe("meow");
+      pointer(CAT_RECT.x - 500, CAT_RECT.y); // far: the bubble goes with the cursor
+      expect(t.bubble()).toBeNull();
       advance(30_000);
       expect(t.bubble()).toBeNull();
     });
@@ -454,12 +456,62 @@ describe("Companions", () => {
       expect(t.bubble()).toBeNull(); // no chatter while thinking
     });
 
+    it("a failed ask ends without the happy beat", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const t = setup({ thinking: true });
+      advance(2000);
+      t.update({ thinking: false, askOutcome: "fail" });
+      expect(t.cat()).not.toBe("happy");
+      expect(t.cat()).not.toBe("think");
+      const seen = new Set<string>();
+      for (let i = 0; i < 30; i++) {
+        advance(100);
+        seen.add(t.cat()!);
+      }
+      expect(seen.has("happy") || seen.has("think")).toBe(false);
+      expect(seen).toContain("walk"); // it wanders on after the beat
+    });
+
+    it("leaving think with the cursor still near: it keeps attending instead of walking off", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const t = setup();
+      pointer(CAT_RECT.x + CAT_RECT.w + 80, CAT_RECT.y + 16); // near, right
+      t.update({ thinking: true });
+      advance(3000);
+      t.update({ thinking: false, askOutcome: "ok" });
+      expect(t.cat()).toBe("happy");
+      const held = t.catBox().style.transform;
+      advance(1000);
+      expect(t.cat()).toBe("look-r");
+      advance(20_000);
+      expect(t.cat()).toMatch(/^look-|^paw$/);
+      expect(t.catBox().style.transform).toBe(held);
+    });
+
+    it("leaving think after the cursor's spot became far (layout moved): no chatter, it wanders on", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const t = setup();
+      pointer(CAT_RECT.x - 100, CAT_RECT.y); // near
+      t.update({ thinking: true });
+      advance(2000);
+      // the cat's box moves far from the resting cursor without a pointer move
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+        x: 900, y: 600, left: 900, top: 600, width: 40, height: 40, right: 940, bottom: 640, toJSON: () => ({}),
+      } as DOMRect);
+      t.update({ thinking: false, askOutcome: "ok" });
+      for (let i = 0; i < 300; i++) {
+        advance(100);
+        expect(t.bubble()).toBeNull();
+      }
+      expect(t.cat()).not.toMatch(/^look-/);
+    });
+
     it("when the answer lands: a 1 s happy beat, then it wanders on", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.5);
       const t = setup({ thinking: true });
       advance(5000);
       expect(t.cat()).toBe("think");
-      t.update({ thinking: false });
+      t.update({ thinking: false, askOutcome: "ok" });
       expect(t.cat()).toBe("happy");
       advance(999);
       expect(t.cat()).toBe("happy");

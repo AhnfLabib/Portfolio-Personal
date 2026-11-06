@@ -62,6 +62,25 @@ describe("Terminal", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
+  it("a pointer press on the cat never moves focus (WebKit would hand it to the card and activate the terminal)", async () => {
+    const t = setup();
+    const cat = screen.getByRole("button", { name: "the cat" });
+    expect(fireEvent.pointerDown(cat)).toBe(false); // default prevented
+    expect(fireEvent.mouseDown(cat)).toBe(false);
+    fireEvent.click(cat);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    await t.user.click(cat); // user-event moves focus on mousedown unless it is prevented
+    expect(cat).not.toHaveFocus();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("clicking the cat while the terminal is active keeps the input focused", async () => {
+    const t = setup();
+    const input = await t.activate();
+    await t.user.click(screen.getByRole("button", { name: "the cat" }));
+    expect(input).toHaveFocus();
+  });
+
   it("the cat comes after the input (and hint links) in tab order; tabbing to it keeps the terminal active", async () => {
     const t = setup();
     await t.activate();

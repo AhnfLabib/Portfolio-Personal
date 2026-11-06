@@ -165,6 +165,8 @@ const PixelSprite = memo(function PixelSprite(props: {
   );
 });
 
+const preventDefault = (e: { preventDefault(): void }) => e.preventDefault();
+
 /** Only a pointer that can hover gets the nearby-cursor behaviour; touch-only devices just tap. */
 const canHover = () => typeof window.matchMedia === "function" && window.matchMedia("(hover: hover)").matches;
 
@@ -175,12 +177,14 @@ export function Companions(props: {
   reduceMotion: boolean;
   /** An `ask` is in flight: the cat stops, faces the prompt and thinks; a happy beat when it ends. */
   thinking: boolean;
+  /** How the last ask ended: the happy beat plays only after "ok". */
+  askOutcome?: "ok" | "fail" | null;
   /** Each change shows the love pose for 4 s with a ♥ bubble (wired to the AI answer in a later task). */
   loveTick?: number;
   /** Called on every click/tap of the cat (after its reaction); the hook for a later mini-game. */
   onCatClick?: () => void;
 }) {
-  const { skin, shades, petTick, reduceMotion, thinking, loveTick = 0, onCatClick } = props;
+  const { skin, shades, petTick, reduceMotion, thinking, askOutcome = null, loveTick = 0, onCatClick } = props;
   const [timers] = useState(createTimers);
   const [wander, setWander] = useState<WanderState | null>(null);
   const [purr, setPurr] = useState(false);
@@ -200,6 +204,8 @@ export function Companions(props: {
   const lastPetTick = useRef(petTick);
   const lastLoveTick = useRef(loveTick);
   const thinkingRef = useRef(thinking);
+  /** Re-runs the cursor check from the last pointer position (set by the tracking effect). */
+  const recheckRef = useRef<(() => void) | null>(null);
   const clicks = useRef(0);
 
   // The wrapper fills the card, so its box is the cat's territory.
@@ -231,15 +237,19 @@ export function Companions(props: {
   useEffect(() => {
     if (reduceMotion) return;
     const commit = (step: WanderState) => {
+      const prev = wanderRef.current;
       // while thinking it holds still facing the prompt (a hop in mid-air lands first)
       const next = thinkingRef.current ? attendWander(step, timers.now(), -1) : step;
       wanderRef.current = next;
       setWander(next);
       // attending the cursor holds until the tracking says otherwise
-      if (!Number.isFinite(next.until)) return timers.cancel("wander");
-      timers.after("wander", Math.max(0, next.until - timers.now()), () =>
-        commit(stepWander(wanderRef.current!, timers.now(), boundsOf(sizeRef.current), Math.random)),
-      );
+      if (!Number.isFinite(next.until)) timers.cancel("wander");
+      else
+        timers.after("wander", Math.max(0, next.until - timers.now()), () =>
+          commit(stepWander(wanderRef.current!, timers.now(), boundsOf(sizeRef.current), Math.random)),
+        );
+      // Leaving attend (or think) while the cursor rests: its zone may be stale, so look again (last: it may commit).
+      if (prev?.phase === "attend" && next.phase !== "attend") recheckRef.current?.();
     };
     commitRef.current = commit;
     commit(initialWander(timers.now(), boundsOf(sizeRef.current), Math.random, 0));
@@ -306,6 +316,8 @@ export function Companions(props: {
       if (zone === "far") {
         if (was === "far") return;
         timers.cancel("chatter");
+        timers.cancel("bubble");
+        setBubble(null);
         timers.after("release", between(RELEASE_MS), () => {
           const cur = wanderRef.current;
           if (cur?.phase === "attend") commitRef.current?.(stepWander(cur, timers.now(), boundsOf(sizeRef.current), Math.random));
@@ -323,10 +335,12 @@ export function Companions(props: {
       if (now < busyUntil) return; // let the step or swipe finish
       let next = attendWander(s, now, facing);
       if (zone === "close" && next.phase === "attend") {
-        const off = p.x - (box.x + box.w / 2);
-        if (steps < MAX_STEPS && Math.abs(off) > box.w / 2) {
+        // along the cat's edge: sideways on the top and bottom, up/down on the right
+        const vertical = next.edge === "right";
+        const off = vertical ? p.y - (box.y + box.h / 2) : p.x - (box.x + box.w / 2);
+        if (steps < MAX_STEPS && Math.abs(off) > (vertical ? box.h : box.w) / 2) {
           steps++;
-          next = stepTowardWander(next, now, facing, boundsOf(sizeRef.current));
+          next = stepTowardWander(next, now, off < 0 ? -1 : 1, boundsOf(sizeRef.current));
           busyUntil = now + STEP_MS;
           setStepping(true);
           timers.after("step", STEP_MS, () => setStepping(false));
@@ -350,7 +364,11 @@ export function Companions(props: {
         });
     };
     window.addEventListener("pointermove", onMove, { passive: true });
+    recheckRef.current = () => {
+      if (last) track(last);
+    };
     return () => {
+      recheckRef.current = null;
       window.removeEventListener("pointermove", onMove);
       cancelAnimationFrame(raf);
       for (const key of TRACKING) timers.cancel(key);
@@ -371,10 +389,13 @@ export function Companions(props: {
       if (s) commitRef.current?.(s); // commit re-applies the thinking hold
       return;
     }
-    setHappy(true);
-    timers.after("happy", HAPPY_MS, () => setHappy(false));
+    // a beat in place either way; the happy face only when the answer came through
+    if (askOutcome === "ok") {
+      setHappy(true);
+      timers.after("happy", HAPPY_MS, () => setHappy(false));
+    }
     if (s) commitRef.current?.(holdWander(s, timers.now(), HAPPY_MS));
-  }, [thinking, timers]);
+  }, [thinking, askOutcome, timers]);
 
   // Love is state too: 4 s of it, with a heart.
   useEffect(() => {
@@ -476,6 +497,10 @@ export function Companions(props: {
           aria-label="the cat"
           data-cat=""
           onClick={onClick}
+          // A pointer press never moves focus: WebKit would hand it to the card, activating the terminal (and
+          // opening the iOS keyboard); in Chromium an active terminal keeps its input focused. Keyboard focus still works.
+          onPointerDown={preventDefault}
+          onMouseDown={preventDefault}
           className="pointer-events-auto block cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <PixelSprite

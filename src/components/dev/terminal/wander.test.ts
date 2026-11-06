@@ -278,6 +278,12 @@ describe("attend", () => {
     expect(stepTowardWander(atEnd, 10, 1, BOUNDS).x).toBe(544);
   });
 
+  it("on the right (vertical) edge a step goes along the edge (dir is up/down) and keeps the facing", () => {
+    const onRight: WanderState = { phase: "attend", edge: "right", from: 50, x: 50, facing: -1, since: 0, until: Infinity, sleepAt: 50_000 };
+    expect(stepTowardWander(onRight, 10, 1, BOUNDS)).toMatchObject({ x: 58, from: 50, facing: -1 });
+    expect(stepTowardWander(onRight, 10, -1, BOUNDS)).toMatchObject({ x: 42, facing: -1 });
+  });
+
   it("leaving attend walks on (or naps when due)", () => {
     const a = attendWander(walk, 2000, -1);
     const next = stepWander(a, 4000, BOUNDS, mulberry32(3));

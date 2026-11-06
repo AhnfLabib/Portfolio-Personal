@@ -173,12 +173,25 @@ describe("sprites", () => {
     expect(c["slow-blink"].frames.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("think: three 400 ms frames, the thought dots filling in above the head, eyes up", () => {
+  it("think: three 400 ms frames; 2×2 ink dots, 2 px apart, above the head, each new one a row higher", () => {
     const t = CAT.default.think;
     expect([t.frames.length, t.ms]).toEqual([3, 400]);
-    const accents = t.frames.map((f) => f.slice(0, 11).join("").split("a").length - 1);
-    expect(accents[0]).toBeLessThan(accents[1]);
-    expect(accents[1]).toBeLessThan(accents[2]);
+    /** Top-left corners of every 2×2 ink block in the rows above the head (0–3). */
+    const dots = (f: string[]) => {
+      const out: [number, number][] = [];
+      for (let y = 0; y < 3; y++) for (let x = 0; x < 23; x++) if (f[y][x] === "#" && f[y][x + 1] === "#" && f[y + 1][x] === "#" && f[y + 1][x + 1] === "#") out.push([y, x]);
+      return out;
+    };
+    const expected: [number, number][] = [[2, 13], [1, 17], [0, 21]];
+    t.frames.forEach((f, i) => {
+      expect(dots(f), `frame ${i}`).toEqual(expected.slice(0, i + 1).sort((a, b) => a[0] - b[0]));
+      // nothing but the dots and their bg outline above the head
+      expect(f.slice(0, 4).join("").replace(/[#b.]/g, ""), `frame ${i}`).toBe("");
+      expect(f.slice(0, 4).join("").split("#").length - 1).toBe(4 * (i + 1));
+    });
+    // spaced 2 px apart, each one row higher than the last
+    expect(expected[1][1] - (expected[0][1] + 2)).toBe(2);
+    expect(expected[2][1] - (expected[1][1] + 2)).toBe(2);
   });
 
   it("happy: ears up (the head higher than sitting) for a short beat", () => {

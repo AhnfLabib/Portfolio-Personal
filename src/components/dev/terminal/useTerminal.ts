@@ -11,6 +11,8 @@ export interface TerminalState {
   busy: boolean;
   /** An `ask` is in flight: from its start until its answer line is appended. */
   asking: boolean;
+  /** How the last `ask` ended; null while one is in flight, before any, or after `clear`. */
+  askOutcome: "ok" | "fail" | null;
   skin: SkinName;
   shades: boolean;
   mood: Mood;
@@ -56,7 +58,8 @@ type Action =
   | { type: "start"; input: string }
   | { type: "append"; lines: Line[] }
   | { type: "done" }
-  | { type: "asking"; value: boolean }
+  | { type: "asking" }
+  | { type: "asked"; ok: boolean }
   | { type: "clear" }
   | { type: "skin"; skin: SkinName }
   | { type: "shades" }
@@ -100,9 +103,11 @@ function reducer(s: Internal, a: Action): Internal {
     case "done":
       return { ...s, busy: false };
     case "asking":
-      return { ...s, asking: a.value };
+      return { ...s, asking: true, askOutcome: null };
+    case "asked":
+      return { ...s, asking: false, askOutcome: a.ok ? "ok" : "fail" };
     case "clear":
-      return { ...s, lines: [], busy: false, asking: false };
+      return { ...s, lines: [], busy: false, asking: false, askOutcome: null };
     case "skin":
       return { ...s, skin: a.skin };
     case "shades":
@@ -149,6 +154,7 @@ function init(storage: Storage | null): Internal {
     input: "",
     busy: false,
     asking: false,
+    askOutcome: null,
     skin,
     shades: false,
     petTick: 0,
@@ -254,7 +260,7 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
     const runAsk = async (question: string) => {
       const gen = r.gen;
       const d = depsRef.current;
-      dispatch({ type: "asking", value: true });
+      dispatch({ type: "asking" });
       let result: AskResult;
       try {
         result = await ask(question, {
@@ -267,7 +273,7 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
       }
       if (gen !== r.gen) return;
       dispatch({ type: "append", lines: [askLine(result)] });
-      dispatch({ type: "asking", value: false });
+      dispatch({ type: "asked", ok: result.ok });
       finish(result.ok);
     };
 

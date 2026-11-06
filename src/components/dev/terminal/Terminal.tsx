@@ -204,6 +204,7 @@ export default function Terminal() {
         shades={state.shades}
         petTick={state.petTick}
         thinking={state.asking}
+        askOutcome={state.askOutcome}
         reduceMotion={reduceMotion}
       />
     </div>

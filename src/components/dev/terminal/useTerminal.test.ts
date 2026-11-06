@@ -286,6 +286,21 @@ describe("useTerminal", () => {
     await act(async () => pending.resolve(Response.json({ answer: "agents" })));
     expect(state().lines.at(-1)).toEqual({ kind: "text", text: "agents" });
     expect(state().asking).toBe(false);
+    expect(state().askOutcome).toBe("ok");
+  });
+
+  it("askOutcome: null until an ask finishes, fail on failure, reset when the next ask starts", async () => {
+    let pending = deferred<Response>();
+    const fetch = vi.fn(() => pending.promise) as unknown as typeof globalThis.fetch;
+    const { state, run } = setup({ reduceMotion: true, storage: null, fetch });
+    expect(state().askOutcome).toBeNull();
+    run("ask one");
+    expect(state().askOutcome).toBeNull();
+    await act(async () => pending.reject(new Error("network")));
+    expect(state().askOutcome).toBe("fail");
+    pending = deferred<Response>();
+    run("ask two");
+    expect(state().askOutcome).toBeNull();
   });
 
   it("asking: clear during an ask drops it", () => {
