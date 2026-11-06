@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, getDefaultNormalizer, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Terminal, { LOG_HEIGHT, LOG_HEIGHT_ACTIVE } from "./Terminal";
@@ -519,5 +519,56 @@ describe("Terminal", () => {
     expect(card).not.toHaveClass("cursor-text");
     expect(card).not.toHaveClass("hover:border-accent/60");
     expect(screen.getByRole("button", { name: "the cat" })).toHaveClass("cursor-pointer");
+  });
+
+  describe("cat dash", () => {
+    // jsdom has no canvas: a null context leaves the game running undrawn
+    beforeEach(() => {
+      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+      document.body.style.overflow = "";
+    });
+
+    it("play command keeps the terminal active across the game", async () => {
+      const t = setup();
+      const input = await t.activate();
+      await t.user.type(input, "play{Enter}");
+      const dialog = await screen.findByRole("dialog", { name: "cat dash" });
+      expect(screen.getByTestId("game")).toHaveFocus();
+      expect(t.card()).toHaveAttribute("data-active", "true");
+      expect(document.body.style.overflow).toBe("hidden");
+      await t.user.keyboard("{Escape}");
+      expect(dialog).not.toBeInTheDocument();
+      expect(t.card()).toHaveAttribute("data-active", "true");
+      expect(t.input()).toHaveFocus();
+      expect(document.body.style.overflow).toBe("");
+    });
+
+    it("opening from the cat menu leaves the terminal inactive", async () => {
+      const t = setup();
+      await t.user.click(screen.getByRole("button", { name: "the cat" }));
+      await t.user.click(screen.getByRole("menuitem", { name: "play a game" }));
+      expect(screen.getByRole("dialog", { name: "cat dash" })).toBeInTheDocument();
+      expect(screen.getByTestId("game")).toHaveFocus();
+      expect(t.card()).toHaveAttribute("data-active", "false");
+      await t.user.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.getByRole("button", { name: "the cat" })).toHaveFocus();
+      expect(t.card()).toHaveAttribute("data-active", "false");
+      expect(screen.queryByRole("textbox")).toBeNull();
+    });
+
+    it("the close button closes it too, and the game is outside the terminal card", async () => {
+      const t = setup();
+      await t.user.click(screen.getByRole("button", { name: "the cat" }));
+      await t.user.click(screen.getByRole("menuitem", { name: "play a game" }));
+      const dialog = screen.getByRole("dialog", { name: "cat dash" });
+      expect(t.card().contains(dialog)).toBe(false);
+      await t.user.click(screen.getByRole("button", { name: "close game" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(t.card()).toHaveAttribute("data-active", "false");
+    });
   });
 });

@@ -182,8 +182,10 @@ export function Companions(props: {
   loveTick?: number;
   /** "play a game" in the cat's click menu. */
   onPlay: () => void;
+  /** The game is open: the cat holds the sit pose where it is, with no wander, no cursor tracking and no chatter. */
+  frozen: boolean;
 }) {
-  const { skin, shades, petTick, reduceMotion, thinking, askOutcome = null, loveTick = 0, onPlay } = props;
+  const { skin, shades, petTick, reduceMotion, thinking, askOutcome = null, loveTick = 0, onPlay, frozen } = props;
   const [timers] = useState(createTimers);
   const [wander, setWander] = useState<WanderState | null>(null);
   const [purr, setPurr] = useState(false);
@@ -210,6 +212,8 @@ export function Companions(props: {
   const reactingRef = useRef(false);
   /** The click menu is open: the cat holds still (looking up) and ignores the cursor. */
   const menuRef = useRef(false);
+  /** The game is open: the cat sits still and ignores the cursor (see `frozen`). */
+  const frozenRef = useRef(frozen);
   /** Where focus was in the card (outside the cat) when the menu opened: "pet" and "nope" hand it back. */
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -243,8 +247,10 @@ export function Companions(props: {
     if (reduceMotion) return;
     const commit = (step: WanderState) => {
       const prev = wanderRef.current;
-      // while thinking it holds still facing the prompt; while the menu is open it just holds (a hop in mid-air lands first)
-      const next = thinkingRef.current
+      // frozen or with the menu open it just holds (a hop in mid-air lands first); while thinking it holds facing the prompt
+      const next = frozenRef.current
+        ? holdWander(step, timers.now(), Infinity)
+        : thinkingRef.current
         ? attendWander(step, timers.now(), -1)
         : menuRef.current
           ? holdWander(step, timers.now(), Infinity)
@@ -274,7 +280,7 @@ export function Companions(props: {
   /** Cursor chatter: yields to a reaction bubble that is showing. */
   const say = useCallback(
     (word: string) => {
-      if (reactingRef.current || menuRef.current) return;
+      if (reactingRef.current || menuRef.current || frozenRef.current) return;
       setBubble(word);
       timers.after("bubble", BUBBLE_MS, () => setBubble(null));
     },
@@ -340,7 +346,7 @@ export function Companions(props: {
     };
 
     const track = (p: Point) => {
-      if (menuRef.current) return; // the menu is open: it looks up at it, whatever the cursor does
+      if (menuRef.current || frozenRef.current) return; // the menu is open (it looks up at it) or the game is: the cursor is ignored
       const el = buttonRef.current;
       const s = wanderRef.current;
       const commit = commitRef.current;
@@ -439,6 +445,26 @@ export function Companions(props: {
     if (s) commitRef.current?.(holdWander(s, timers.now(), HAPPY_MS));
   }, [thinking, askOutcome, timers]);
 
+  // The game opened: sit where it is and say nothing until it closes, then a beat in place before wandering on.
+  useEffect(() => {
+    if (frozenRef.current === frozen) return;
+    frozenRef.current = frozen;
+    const s = wanderRef.current;
+    if (frozen) {
+      timers.cancel("bubble");
+      timers.cancel("chatter");
+      setBubble(null);
+      timers.cancel("paw");
+      timers.cancel("step");
+      setPaw(false);
+      setStepping(false);
+      if (s) commitRef.current?.(s); // commit applies the hold
+      return;
+    }
+    if (s) commitRef.current?.(holdWander(s, timers.now(), MENU_CLOSE_MS));
+    recheckRef.current?.(); // the cursor may be near
+  }, [frozen, timers]);
+
   // Love is state too: 4 s of it, with a heart.
   useEffect(() => {
     if (loveTick === lastLoveTick.current) return;
@@ -526,7 +552,9 @@ export function Companions(props: {
   const catPose: CatPose =
     phase === "hop"
       ? "hop"
-      : menuOpen
+      : frozen
+        ? "sit"
+        : menuOpen
         ? "look-up"
         : blinking
           ? "slow-blink"
@@ -549,7 +577,7 @@ export function Companions(props: {
                           : PHASE_POSE[phase];
   const catSprite = (shades ? CAT_SHADES : CAT)[skin][catPose];
   // every hop step crouches again: a new step restarts the hop's frames
-  const catFrame = useFrame(timers, "cat-frame", catSprite, !reduceMotion, phase === "hop" ? roam?.since : null);
+  const catFrame = useFrame(timers, "cat-frame", catSprite, !reduceMotion && !frozen, phase === "hop" ? roam?.since : null);
 
   const facing = ORIENTED.has(catPose) ? 1 : thinking ? -1 : (roam?.facing ?? 1);
   // Stable per facing, so the memoized cat sprite re-renders only on pose/frame/facing changes.

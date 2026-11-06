@@ -5,7 +5,7 @@ import type { ComponentProps } from "react";
 import { Companions } from "./Companion";
 
 type Props = ComponentProps<typeof Companions>;
-const base: Props = { skin: "default", shades: false, petTick: 0, reduceMotion: false, thinking: false, onPlay: () => {} };
+const base: Props = { skin: "default", shades: false, petTick: 0, reduceMotion: false, thinking: false, frozen: false, onPlay: () => {} };
 
 function setup(overrides: Partial<Props> = {}) {
   let props: Props = { ...base, ...overrides };
@@ -151,6 +151,30 @@ describe("Companions", () => {
     }
     expect(t.catBox().style.transition).toBe("");
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("frozen (the game is open): it holds the sit pose in place, ignores the cursor and never chatters; unfrozen it wanders on", () => {
+    const t = setup();
+    for (let i = 0; i < 300 && t.cat() !== "walk"; i++) advance(10);
+    expect(t.cat()).toBe("walk");
+    t.update({ frozen: true });
+    for (let i = 0; i < 100 && t.cat() !== "sit"; i++) advance(10); // a hop in mid-air lands first
+    expect(t.cat()).toBe("sit");
+    const held = t.snapshot();
+    pointer(CAT_RECT.x - 10, CAT_RECT.y + 16); // right next to it
+    for (let i = 0; i < 300; i++) {
+      advance(100);
+      expect(t.snapshot()).toBe(held);
+      expect(t.bubble()).toBeNull();
+    }
+    pointer(CAT_RECT.x - 2000, CAT_RECT.y);
+    t.update({ frozen: false });
+    const after = new Set<string>();
+    for (let i = 0; i < 100; i++) {
+      advance(100);
+      after.add(t.snapshot());
+    }
+    expect(after.size).toBeGreaterThan(1);
   });
 
   it("switching to reduceMotion mid-walk stops everything and snaps home", () => {

@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { HINT_LINE, IDLE_LINES, type Line } from "./commands";
 import { Companions } from "./Companion";
 import { useTerminal, type TerminalApi } from "./useTerminal";
+import { CatGame } from "./game/CatGame";
 
 const KIND_CLASS: Record<Exclude<Line["kind"], "link">, string> = {
   prompt: "text-accent",
@@ -99,9 +100,21 @@ function HintLine({ api, focusInput }: { api: TerminalApi; focusInput: () => voi
 
 export default function Terminal() {
   const reduceMotion = useReducedMotion() ?? false;
-  const [state, api] = useTerminal({ reduceMotion });
+  const groupRef = useRef<HTMLDivElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Cat Dash: opened by the `play` command (focus returns to the input) or the cat's menu (focus returns to the cat).
+  const [gameOpen, setGameOpen] = useState(false);
+  const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
+  const openGame = (from: "command" | "menu") => {
+    setReturnFocusTo(
+      from === "command"
+        ? inputRef.current
+        : (groupRef.current?.querySelector<HTMLElement>("[data-cat] button[aria-haspopup]") ?? null),
+    );
+    setGameOpen(true);
+  };
+  const [state, api] = useTerminal({ reduceMotion, onPlay: () => openGame("command") });
   const idle = state.lines === IDLE_LINES;
   const showPrompt = state.active || !idle;
   const focusInput = () => inputRef.current?.focus();
@@ -139,6 +152,7 @@ export default function Terminal() {
     if (e.target === e.currentTarget) focusInput();
   };
   const onBlur = (e: FocusEvent<HTMLDivElement>) => {
+    if (gameOpen) return; // the game dialog took focus: the terminal stays as it was
     if (!e.currentTarget.contains(e.relatedTarget as Node | null)) api.deactivate();
   };
   const onClick = (e: MouseEvent<HTMLDivElement>) => {
@@ -168,109 +182,123 @@ export default function Terminal() {
   };
 
   return (
-    <div
-      className="relative"
-      role="group"
-      data-active={state.active ? "true" : "false"}
-      // Untabbable while active, so Shift+Tab from the input leaves the card.
-      tabIndex={state.active ? -1 : 0}
-      aria-label="Interactive terminal. Click or press Enter to type commands."
-      onClick={onClick}
-      onFocus={onFocus}
-      onBlur={onBlur}
-    >
-      <p id={hintId} className="sr-only">
-        Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves. The card grows while you type.
-      </p>
+    <>
       <div
-        data-testid="terminal-card"
-        className={`overflow-hidden rounded-xl border bg-surface text-left shadow-2xl shadow-black/40 transition-colors ${
-          state.active ? "border-accent/60" : "border-line hover:border-accent/60 cursor-text"
-        }`}
+        ref={groupRef}
+        className="relative"
+        role="group"
+        data-active={state.active ? "true" : "false"}
+        // Untabbable while active, so Shift+Tab from the input leaves the card.
+        tabIndex={state.active ? -1 : 0}
+        aria-label="Interactive terminal. Click or press Enter to type commands."
+        onClick={onClick}
+        onFocus={onFocus}
+        onBlur={onBlur}
       >
-        <div className="flex items-center gap-2 border-b border-line bg-surface-2 px-4 py-3">
-          <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
-          <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
-          <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
-          <span className="ml-2 whitespace-nowrap font-mono text-xs text-ink-faint">ahnaf@portfolio: ~</span>
-          {!state.active && !everActive && (
-            <span
-              data-testid="type-hint"
-              className="ml-auto hidden whitespace-nowrap font-mono text-xs text-ink-faint min-[23rem]:inline"
-            >
-              {hoverNone ? "tap to type" : "click to type"}
-            </span>
-          )}
-        </div>
+        <p id={hintId} className="sr-only">
+          Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves. The card grows while you type.
+        </p>
         <div
-          ref={logRef}
-          role="log"
-          aria-live="polite"
-          data-testid="terminal-log"
-          onClick={state.busy ? api.finishTyping : undefined}
-          className={`${state.active ? LOG_HEIGHT_ACTIVE : LOG_HEIGHT} transition-[height] duration-[260ms] ease-out motion-reduce:transition-none space-y-3 overflow-y-auto p-4 font-mono text-xs whitespace-pre-wrap [overflow-wrap:anywhere] sm:text-sm`}
+          data-testid="terminal-card"
+          className={`overflow-hidden rounded-xl border bg-surface text-left shadow-2xl shadow-black/40 transition-colors ${
+            state.active ? "border-accent/60" : "border-line hover:border-accent/60 cursor-text"
+          }`}
         >
-          {groupLines(state.lines).map((group, gi, groups) => (
-            <motion.div
-              key={group.start}
-              initial={idle ? { opacity: 0, x: -8 } : false}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.5 + gi * 0.35 }}
-            >
-              {group.lines.map((line, i) => (
-                <LineView
-                  key={group.start + i}
-                  line={line}
-                  first={i === 0}
-                  cursor={!showPrompt && gi === groups.length - 1 && i === group.lines.length - 1}
-                />
-              ))}
-            </motion.div>
-          ))}
-          {showPrompt && (
-            <div>
-              <p className={`flex items-center ${KIND_CLASS.prompt}`}>
-                <span>$ </span>
-                {state.active ? (
-                  <input
-                    ref={inputRef}
-                    aria-label="terminal input"
-                    aria-describedby={hintId}
-                    value={state.input}
-                    onChange={(e) => api.setInput(e.target.value)}
-                    onKeyDown={onKeyDown}
-                    autoComplete="off"
-                    autoCapitalize="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    // 16px on phones so iOS does not zoom the page on focus; matches the log from sm up.
-                    className="min-w-0 flex-1 bg-transparent text-base text-ink caret-accent outline-none sm:text-sm"
+          <div className="flex items-center gap-2 border-b border-line bg-surface-2 px-4 py-3">
+            <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
+            <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
+            <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
+            <span className="ml-2 whitespace-nowrap font-mono text-xs text-ink-faint">ahnaf@portfolio: ~</span>
+            {!state.active && !everActive && (
+              <span
+                data-testid="type-hint"
+                className="ml-auto hidden whitespace-nowrap font-mono text-xs text-ink-faint min-[23rem]:inline"
+              >
+                {hoverNone ? "tap to type" : "click to type"}
+              </span>
+            )}
+          </div>
+          <div
+            ref={logRef}
+            role="log"
+            aria-live="polite"
+            data-testid="terminal-log"
+            onClick={state.busy ? api.finishTyping : undefined}
+            className={`${state.active ? LOG_HEIGHT_ACTIVE : LOG_HEIGHT} transition-[height] duration-[260ms] ease-out motion-reduce:transition-none space-y-3 overflow-y-auto p-4 font-mono text-xs whitespace-pre-wrap [overflow-wrap:anywhere] sm:text-sm`}
+          >
+            {groupLines(state.lines).map((group, gi, groups) => (
+              <motion.div
+                key={group.start}
+                initial={idle ? { opacity: 0, x: -8 } : false}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, delay: 0.5 + gi * 0.35 }}
+              >
+                {group.lines.map((line, i) => (
+                  <LineView
+                    key={group.start + i}
+                    line={line}
+                    first={i === 0}
+                    cursor={!showPrompt && gi === groups.length - 1 && i === group.lines.length - 1}
                   />
-                ) : (
-                  // Inactive with output: the pending text and the idle block cursor;
-                  // while active the input's own accent caret takes over.
-                  <>
-                    <span className="text-ink">{state.input}</span>
-                    <IdleCursor />
-                  </>
-                )}
-              </p>
-              {state.active && state.showHint && <HintLine api={api} focusInput={focusInput} />}
-            </div>
-          )}
+                ))}
+              </motion.div>
+            ))}
+            {showPrompt && (
+              <div>
+                <p className={`flex items-center ${KIND_CLASS.prompt}`}>
+                  <span>$ </span>
+                  {state.active ? (
+                    <input
+                      ref={inputRef}
+                      aria-label="terminal input"
+                      aria-describedby={hintId}
+                      value={state.input}
+                      onChange={(e) => api.setInput(e.target.value)}
+                      onKeyDown={onKeyDown}
+                      autoComplete="off"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      // 16px on phones so iOS does not zoom the page on focus; matches the log from sm up.
+                      className="min-w-0 flex-1 bg-transparent text-base text-ink caret-accent outline-none sm:text-sm"
+                    />
+                  ) : (
+                    // Inactive with output: the pending text and the idle block cursor;
+                    // while active the input's own accent caret takes over.
+                    <>
+                      <span className="text-ink">{state.input}</span>
+                      <IdleCursor />
+                    </>
+                  )}
+                </p>
+                {state.active && state.showHint && <HintLine api={api} focusInput={focusInput} />}
+              </div>
+            )}
+          </div>
         </div>
+        {/* After the log, so the cat's button comes after the input in tab order. */}
+        <Companions
+          skin={state.skin}
+          shades={state.shades}
+          petTick={state.petTick}
+          loveTick={state.loveTick}
+          thinking={state.asking}
+          askOutcome={state.askOutcome}
+          reduceMotion={reduceMotion}
+          onPlay={() => openGame("menu")}
+          frozen={gameOpen}
+        />
       </div>
-      {/* After the log, so the cat's button comes after the input in tab order. */}
-      <Companions
+      {/* Outside the card's subtree, so the dialog's focus and clicks never reach the card's handlers. */}
+      <CatGame
+        open={gameOpen}
+        onClose={() => setGameOpen(false)}
         skin={state.skin}
         shades={state.shades}
-        petTick={state.petTick}
-        loveTick={state.loveTick}
-        thinking={state.asking}
-        askOutcome={state.askOutcome}
         reduceMotion={reduceMotion}
-        onPlay={() => {}}
+        paletteFrom={groupRef.current}
+        returnFocusTo={returnFocusTo}
       />
-    </div>
+    </>
   );
 }
