@@ -52,7 +52,10 @@ describe("CreativeMusic", () => {
   it("renders the section heading, line and handle link", () => {
     const { container } = render(<CreativeMusic />);
     expect(container.querySelector("section#music")).not.toBeNull();
-    expect(screen.getByRole("heading", { level: 2, name: "Music" })).toBeInTheDocument();
+    const h2 = screen.getByRole("heading", { level: 2, name: "Music" });
+    // Same rank as the Rolls h2, a step above the roll h3s (2rem).
+    expect(h2).toHaveClass("text-[2.5rem]", "sm:text-[3rem]", "leading-tight");
+    expect(h2).not.toHaveClass("text-[2rem]");
     expect(screen.getByText(music.line)).toBeInTheDocument();
     const handle = screen.getByRole("link", { name: `${music.handle} →` });
     expect(handle).toHaveAttribute("href", music.url);

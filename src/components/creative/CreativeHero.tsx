@@ -10,7 +10,9 @@ import { frameSrcSet } from "./frameSrc";
  *   4 small portrait — right column, bottom
  * Below lg (phones and portrait tablets): the large frame spans both columns,
  * the other four sit 2×2.
- * `sizes` describes the width the browser must fetch for object-cover. Slots 2
+ * `sizes` describes the width the browser must fetch for object-cover. Slot 0
+ * (the LCP frame) uses its cell width so phones take the 800w file; the
+ * <link rel="preload"> in index.html carries the same srcset/sizes. Slots 2
  * and 3 hold 16:9 photos in portrait-shaped cells, so the fetch width follows
  * cell height × 1.78: below lg a ~50vw × 66.7vw cell needs ~118vw (120vw, so a
  * DPR2 phone picks the 1600w file); at lg+ a ~240px-tall cell needs ~425px
@@ -19,7 +21,7 @@ import { frameSrcSet } from "./frameSrc";
  * `lazy` marks the two frames below the phone fold.
  */
 const SLOTS: { cell: string; sizes: string; focus: string; lazy?: boolean }[] = [
-  { cell: "aspect-square sm:aspect-[4/3] lg:aspect-auto lg:min-h-0 lg:flex-1", sizes: "", focus: "55% 50%" },
+  { cell: "aspect-square sm:aspect-[4/3] lg:aspect-auto lg:min-h-0 lg:flex-1", sizes: "(min-width: 1024px) 50vw, 100vw", focus: "55% 50%" },
   { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-2 lg:row-span-3 lg:row-start-1", sizes: "(min-width: 1024px) 42vw, 50vw", focus: "50% 50%" },
   { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-3 lg:row-start-1", sizes: "(min-width: 1024px) 30vw, 120vw", focus: "55% 50%" },
   { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-3 lg:row-start-2", sizes: "(min-width: 1024px) 30vw, 120vw", focus: "72% 50%", lazy: true },
@@ -48,8 +50,8 @@ export default function CreativeHero() {
       >
         <img
           src={f.src}
-          srcSet={large ? undefined : frameSrcSet(f)}
-          sizes={large ? undefined : SLOTS[i].sizes}
+          srcSet={frameSrcSet(f)}
+          sizes={SLOTS[i].sizes}
           alt={f.alt}
           width={f.width}
           height={f.height}
@@ -89,7 +91,9 @@ export default function CreativeHero() {
           href="#rolls"
           className="col-span-2 justify-self-end py-2 font-mono text-xs uppercase tracking-wide text-ink underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent lg:absolute lg:bottom-0 lg:right-0 lg:z-10 lg:bg-bg/75 lg:pb-0 lg:pl-4 lg:pt-3 lg:backdrop-blur-md"
         >
-          {cta} <span aria-hidden="true" className="text-accent">↓</span>
+          {/* Ink, not accent: over frame 5's light region the chip (bg/75) lets the
+              accent drop to ~2.3:1 worst case; ink stays ≥ 7.7:1. */}
+          {cta} <span aria-hidden="true" className="text-ink">↓</span>
         </a>
       </div>
     </section>

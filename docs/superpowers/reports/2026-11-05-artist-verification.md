@@ -624,3 +624,68 @@ At 1440 the strip overlaps the large frame by 32 px; the photo under it is dark.
 
 On the final tree: `npm test` 25 files, **234/234 passed**; `npx tsc -b` clean; `npm run build` succeeded
 (main chunk 110.08 KiB gzip).
+
+## v2 follow-up (perf/polish)
+
+Date: 2026-11-06. Branch `artist-redesign`, on top of `da28451`. Four follow-ups from the v2 re-verification.
+
+### Changes
+
+1. **Persona fade skipped on first load.** `App.tsx`: `<AnimatePresence mode="wait" initial={false}>`, so the persona
+   present at first mount renders in its `animate` state; a later flip still mounts the new persona at `opacity: 0`
+   and fades it in (exit → enter, `mode="wait"`). The shell carries `data-persona-shell` for the test.
+   `App.test.tsx` (framer-motion not mocked): first render's shell style is not `opacity: 0`, before and after the
+   lazy chunk resolves; for Artist → Dev and Dev → Artist a MutationObserver records the new shell's inline opacity
+   at insertion (`"0"`) and the test waits for `"1"`. With `initial={false}` removed the test fails
+   (`expected '0' not to be '0'`).
+2. **`srcset` on the LCP frame.** `CreativeHero.tsx` slot 0 now gets `frameSrcSet` (`/gallery/r4-02-800.jpg 800w,
+   /gallery/r4-02.jpg 1600w`) and `sizes="(min-width: 1024px) 50vw, 100vw"`. The preload in `index.html` gained the
+   same `imagesrcset` / `imagesizes`. Test: slot 0 `srcset`/`sizes`, and the preload's attributes equal the img's.
+   Lighthouse shows a single `r4-02-800.jpg` request (19 KB) for the LCP, so preload and img agree.
+3. **Music heading rank.** `CreativeMusic.tsx` h2 `text-[2rem]` → `text-[2.5rem] sm:text-[3rem]` (`leading-tight`),
+   same as the Rolls h2; test pins it. The contact h2 (`text-[3.25rem] sm:text-[5rem] leading-none tracking-tight`) is
+   the v2 spec's display headline, not a trivial drift from Rolls, so it was left as is.
+4. **Hero CTA arrow.** Worst case (lightest photo pixel = white) for the accent `#e0522f` on the chip `bg #0e0d0b` at
+   alpha a: 75 % → 2.30, 85 % → 3.34, **90 % → 3.94**, 95 % → 4.53, solid → 5.01. `bg/90` is still under 4.5, so the
+   arrow is now `text-ink` (`#f3eee4`) on the unchanged `lg:bg-bg/75` chip: **7.72:1** worst case (13.21 at 90 %).
+   Computed colour in Chromium: `rgb(243, 238, 228)`. Test pins `text-ink`.
+
+### Lighthouse mobile ×3
+
+`npx --yes lighthouse@latest http://localhost:4173/artist.html --form-factor=mobile --chrome-flags="--headless
+--no-sandbox" --chrome-path=/opt/pw-browsers/chromium --only-categories=performance,accessibility,best-practices
+--output=json --quiet` against `npx vite preview --port 4173`, with a temporary `dist/artist.html` (persona
+`creative` on `<html>`, `portfolio-persona` / `intro-played` set by an inline script), deleted afterwards. Raw JSON:
+`v2f-lh-{1,2,3}.json` in the session scratchpad. Lighthouse 13.6.0.
+
+| Run | Perf | A11y | BP | FCP | LCP | TBT | CLS | SI | LCP render delay |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 91 | 100 | 100 | 0.8 s | 3430 ms | 70 ms | 0.001 | 2.1 s | 471 ms |
+| 2 | 91 | 100 | 100 | 0.8 s | 3497 ms | 20 ms | 0.001 | 2.1 s | 437 ms |
+| 3 | 83 | 100 | 100 | 0.8 s | 4733 ms | 20 ms | 0 | 1.7 s | 453 ms |
+
+Median **Performance 91** (was 85; target ≥ 90 met on the median, not on every run), LCP median 3497 ms (was
+4.3 s), Accessibility 100, Best practices 100. LCP element: the large frame, now `currentSrc` `r4-02-800.jpg`.
+
+LCP breakdown (runs 1/2/3): TTFB 11/7/8 ms, resource load delay 20/25/19 ms, load duration 15/12/9 ms, **element
+render delay 471/437/453 ms**. The render delay did not fall with the fade gone: it is the time to download and run
+the main bundle and the lazy `CreativePortfolio` chunk under simulated throttling before the img exists in the DOM,
+not the opacity fade. The LCP gain comes from the lighter file (800w, 19 KB). Run 3 is the outlier (LCP 4.7 s with
+the same breakdown, i.e. variance in the observed-to-simulated trace). Remaining opportunity: unused JavaScript,
+est. 51 KiB.
+
+Rendered cell / chosen file (Playwright, after network idle): 1440 DPR 1 cell 570×681 → `r4-02-800.jpg`; 1440 DPR 2
+→ `r4-02.jpg`; 412 DPR 1.75 cell 380×380 → `r4-02-800.jpg`; 390 DPR 3 → `r4-02.jpg`.
+
+### Concern
+
+The large cell is portrait at lg (570×681) and square below sm, while `r4-02` is 16:9 under `object-cover`, so the
+visible crop is about 1213 CSS px of source wide at 1440 and ~676 at 380. With `sizes` based on cell width, a DPR 1
+desktop and a DPR 1.75 phone get the 800w file and upscale it (~1.5× at 1440). Sizing by cell height (as slots 2/3
+do) would avoid that but send phones the 1600w file again. Left as specified; a mid-size (~1200w) variant in
+`prepare-media` would fix both.
+
+### Final checks
+
+`npm test` 25 files, **237/237 passed**; `npx tsc -b` clean; `npm run build` succeeded (main chunk 110.09 KiB gzip,
+CreativePortfolio 5.42 KiB gzip).

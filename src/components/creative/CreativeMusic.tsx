@@ -31,7 +31,7 @@ export default function CreativeMusic(): JSX.Element {
   return (
     <section id="music" className="scroll-mt-24 px-4 py-24 sm:px-6 sm:py-32">
       <div className="mx-auto max-w-6xl">
-        <h2 className="font-display text-[2rem] leading-tight text-ink">Music</h2>
+        <h2 className="font-display text-[2.5rem] leading-tight text-ink sm:text-[3rem]">Music</h2>
         <p className="mt-3 max-w-prose text-lg leading-relaxed text-ink">{music.line}</p>
         <a
           href={music.url}

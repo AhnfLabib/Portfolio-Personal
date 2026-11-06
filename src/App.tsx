@@ -27,9 +27,12 @@ function PortfolioShell() {
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
-      <AnimatePresence mode="wait">
+      {/* initial={false}: the persona present on first load paints at once (its
+          fade held the LCP image back ~440 ms); a flip still fades the new one in. */}
+      <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={persona}
+          data-persona-shell
           variants={variants}
           initial="initial"
           animate="animate"

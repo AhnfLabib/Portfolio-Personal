@@ -25,7 +25,15 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" as="image" href="/gallery/r4-02.jpg" fetchpriority="high" />
+    <!-- Same srcset/sizes as the hero's large frame, so the preload fetches the file the img picks. -->
+    <link
+      rel="preload"
+      as="image"
+      href="/gallery/r4-02.jpg"
+      imagesrcset="/gallery/r4-02-800.jpg 800w, /gallery/r4-02.jpg 1600w"
+      imagesizes="(min-width: 1024px) 50vw, 100vw"
+      fetchpriority="high"
+    />
     <!-- Fonts load without blocking first paint; display=swap shows fallbacks meanwhile. -->
     <link
       rel="stylesheet"

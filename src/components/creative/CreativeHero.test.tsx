@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import CreativeHero from "./CreativeHero";
@@ -60,6 +62,25 @@ describe("CreativeHero", () => {
     const imgs = screen.getAllByRole("img");
     expect(imgs[2]).toHaveAttribute("sizes", "(min-width: 1024px) 30vw, 120vw");
     expect(imgs[3]).toHaveAttribute("sizes", "(min-width: 1024px) 30vw, 120vw");
+  });
+
+  it("gives the LCP frame a srcset and cell-width sizes matching the index.html preload", () => {
+    render(<CreativeHero />);
+    const large = screen.getAllByRole("img")[0];
+    expect(large).toHaveAttribute("srcset", "/gallery/r4-02-800.jpg 800w, /gallery/r4-02.jpg 1600w");
+    expect(large).toHaveAttribute("sizes", "(min-width: 1024px) 50vw, 100vw");
+    expect(large).toHaveAttribute("fetchpriority", "high");
+    const html = readFileSync(resolve(__dirname, "../../../index.html"), "utf8");
+    const preload = html.match(/<link\s+rel="preload"[^>]*>/s)?.[0] ?? "";
+    expect(preload).toContain(`imagesrcset="${large.getAttribute("srcset")}"`);
+    expect(preload).toContain(`imagesizes="${large.getAttribute("sizes")}"`);
+  });
+
+  it("draws the CTA arrow in ink, not accent (the chip sits over a light photo)", () => {
+    render(<CreativeHero />);
+    const arrow = screen.getByText("↓");
+    expect(arrow).toHaveClass("text-ink");
+    expect(arrow).not.toHaveClass("text-accent");
   });
 
   it("loads the first three frames eagerly and lazy-loads the two below the phone fold", () => {

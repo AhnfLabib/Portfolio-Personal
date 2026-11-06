@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import App from "./App";
 
 // Each persona module is replaced by a stub whose render is a spy, and whose
@@ -99,5 +99,47 @@ describe("App persona code split", () => {
     expect(await screen.findByTestId("creative-persona")).toBeInTheDocument();
     expect(sessionStorage.getItem("intro-played")).toBe("1");
   });
+});
 
+describe("App persona fade", () => {
+  const shell = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-persona-shell]");
+
+  it("paints the persona on first load with no opacity-0 start, and still fades on a flip both ways", async () => {
+    localStorage.setItem("portfolio-persona", "creative");
+    const { container } = render(<App />);
+    // First mount: AnimatePresence initial={false} renders the target state at once.
+    expect(shell(container)).not.toBeNull();
+    expect(shell(container)!.style.opacity).not.toBe("0");
+    expect(await screen.findByTestId("creative-persona")).toBeInTheDocument();
+    expect(shell(container)!.style.opacity).not.toBe("0");
+
+    // A flip: the old shell exits, then a new shell element is inserted. Record
+    // the opacity each new shell has at the moment it is inserted (not the exit
+    // tween of the old one), then check it fades up to 1.
+    const inserted: { el: HTMLElement; opacity: string }[] = [];
+    const watch = new MutationObserver((records) => {
+      for (const r of records)
+        r.addedNodes.forEach((n) => {
+          if (n instanceof HTMLElement && n.matches("[data-persona-shell]"))
+            inserted.push({ el: n, opacity: n.style.opacity });
+        });
+    });
+    watch.observe(container, { subtree: true, childList: true });
+
+    const flip = async (label: string, testId: string) => {
+      inserted.length = 0;
+      await act(async () => {
+        fireEvent.click(screen.getAllByRole("button", { name: `${label} persona` })[0]);
+      });
+      const child = await screen.findByTestId(testId, {}, { timeout: 3000 });
+      const entering = child.closest<HTMLElement>("[data-persona-shell]")!;
+      expect(inserted.map((i) => i.el)).toContain(entering);
+      expect(inserted.find((i) => i.el === entering)!.opacity).toBe("0");
+      await waitFor(() => expect(entering.style.opacity).toBe("1"), { timeout: 3000 });
+    };
+
+    await flip("Dev", "dev-persona");
+    await flip("Artist", "creative-persona");
+    watch.disconnect();
+  });
 });
