@@ -1,91 +1,59 @@
-import { Github, Instagram, Linkedin, Mail } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Fragment } from "react";
 import { creative, socials } from "../../data/content";
 import { usePersona } from "../../persona/PersonaContext";
 
-const socialIcons: Record<string, LucideIcon> = {
-  mail: Mail,
-  linkedin: Linkedin,
-  github: Github,
-  instagram: Instagram,
-};
+/** The order the links read in: email · instagram · linkedin · github. */
+const linkOrder = ["mail", "instagram", "linkedin", "github"] as const;
+const contactLinks = linkOrder.flatMap((icon) => socials.filter((social) => social.icon === icon));
 
 export default function CreativeContact() {
   const { setPersona } = usePersona();
-  const mail = socials.find((social) => social.icon === "mail");
 
   return (
-    <section
-      id="contact"
-      className="scroll-mt-24 px-4 py-24 text-center sm:px-6 sm:py-32"
-    >
-      <div className="mx-auto max-w-3xl">
-        <p className="mb-6 text-xs font-semibold uppercase tracking-[0.35em] text-ink-soft">
-          Contact
-        </p>
-
-        <h2
-          className="font-display font-semibold leading-[0.95] tracking-tight text-ink"
-          style={{ fontSize: "clamp(2.5rem, 8vw, 5rem)" }}
-        >
+    <section id="contact" className="scroll-mt-24 px-4 py-24 sm:px-6 sm:py-32">
+      <div className="mx-auto max-w-6xl">
+        <h2 className="font-display text-[3.25rem] leading-none tracking-tight text-ink sm:text-[5rem]">
           {creative.contact.headline}
         </h2>
 
-        <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-ink-soft sm:text-lg">
-          {creative.contact.line}
-        </p>
-
-        {mail && (
-          <a
-            href={`https://mail.google.com/mail/?view=cm&fs=1&to=${mail.href.replace(
-              /^mailto:/,
-              ""
-            )}`}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-10 inline-flex items-center gap-3 rounded-full bg-accent px-8 py-4 font-medium text-accent-ink transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg"
-          >
-            <Mail className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
-            Say hello
-          </a>
-        )}
-
-        <ul className="mt-12 flex items-center justify-center gap-3">
-          {socials.map((social) => {
-            const Icon = socialIcons[social.icon];
+        <p className="mt-10 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs uppercase tracking-wide">
+          {contactLinks.map((social, i) => {
+            const external = social.href.startsWith("http");
             return (
-              <li key={social.label}>
+              <Fragment key={social.label}>
+                {i > 0 && (
+                  <span aria-hidden="true" className="text-ink-faint">
+                    ·
+                  </span>
+                )}
                 <a
                   href={social.href}
-                  target={social.href.startsWith("http") ? "_blank" : undefined}
-                  rel={
-                    social.href.startsWith("http") ? "noreferrer" : undefined
-                  }
-                  aria-label={social.label}
-                  className="flex h-12 w-12 items-center justify-center rounded-full border border-line text-ink-soft transition-colors duration-200 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+                  target={external ? "_blank" : undefined}
+                  rel={external ? "noreferrer" : undefined}
+                  className="text-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
                 >
-                  <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+                  {social.icon === "mail" ? "email" : social.label.toLowerCase()}
                 </a>
-              </li>
+              </Fragment>
             );
           })}
-        </ul>
+        </p>
 
-        <div className="mt-16 border-t border-line pt-8">
+        <p className="mt-6 font-mono text-xs uppercase tracking-wide text-ink-faint">
           <button
             type="button"
             onClick={() => setPersona("dev")}
-            className="group inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-ink-faint transition-colors duration-200 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg"
+            className="group inline-flex items-center gap-2 uppercase tracking-wide transition-colors duration-200 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
           >
             for work inquiries → the dev side
             <span
               aria-hidden="true"
-              className="transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1"
+              className="transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 motion-reduce:transition-none"
             >
               ↗
             </span>
           </button>
-        </div>
+        </p>
       </div>
     </section>
   );

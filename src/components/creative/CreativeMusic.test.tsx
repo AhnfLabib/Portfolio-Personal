@@ -71,13 +71,27 @@ describe("CreativeMusic", () => {
     expect(within(list).getAllByRole("listitem")).toHaveLength(music.covers.length);
   });
 
-  it("keeps each cover frame 9:16 under the 70vh cap, left-aligned with its link line", () => {
+  it("lays covers out in a horizontal snap strip of 9:16 frames", () => {
     render(<CreativeMusic />);
     const list = screen.getAllByRole("list")[0];
+    expect(list).toHaveClass("flex", "overflow-x-auto", "snap-x", "snap-mandatory", "mt-10", "gap-4");
+    expect(list).not.toHaveClass("grid");
     for (const item of within(list).getAllByRole("listitem")) {
+      expect(item).toHaveClass("snap-start", "shrink-0", "w-[min(70vw,300px)]");
       const frame = item.firstElementChild as HTMLElement;
-      expect(frame).toHaveClass("aspect-[9/16]", "w-full", "max-w-[calc(70vh*9/16)]");
+      expect(frame).toHaveClass("aspect-[9/16]", "w-full");
       expect(frame).not.toHaveClass("mx-auto");
+    }
+  });
+
+  it("puts the drafts in a square deck card with dark seek bars", () => {
+    render(<CreativeMusic />);
+    const deck = screen.getByRole("heading", { level: 3, name: "Drafts" }).parentElement!;
+    expect(deck).toHaveClass("mt-16", "border", "border-line", "bg-surface-2", "p-6", "sm:p-8");
+    expect(deck.className).not.toMatch(/rounded/);
+    for (const d of music.drafts) {
+      const range = within(deck).getByRole("slider", { name: `Seek ${d.title}` });
+      expect(range).toHaveClass("appearance-none", "bg-line", "h-1", "accent-accent");
     }
   });
 

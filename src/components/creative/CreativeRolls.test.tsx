@@ -17,7 +17,7 @@ describe("CreativeRolls", () => {
     const buttons = screen.getAllByRole("button");
     expect(buttons).toHaveLength(total);
     for (const roll of creative.rolls) {
-      expect(screen.getByRole("heading", { level: 2, name: roll.title })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 3, name: roll.title })).toBeInTheDocument();
       for (const frame of roll.frames) {
         const button = screen.getByRole("button", { name: frame.alt });
         expect(button).toHaveAttribute("type", "button");
@@ -49,7 +49,7 @@ describe("CreativeRolls", () => {
 
   it("lays frames out as a multi-column contact sheet, not a span grid", () => {
     const { container } = render(<CreativeRolls onOpen={() => {}} />);
-    const sheets = container.querySelectorAll("article > div");
+    const sheets = container.querySelectorAll("article > div:not([data-roll-meta])");
     expect(sheets).toHaveLength(creative.rolls.length);
     for (const sheet of sheets) {
       expect(sheet).toHaveClass("columns-1", "sm:columns-2", "lg:columns-3", "gap-3");
@@ -57,6 +57,37 @@ describe("CreativeRolls", () => {
     }
     for (const button of screen.getAllByRole("button")) {
       expect(button).toHaveClass("mb-3", "block", "w-full", "break-inside-avoid", "cursor-zoom-in");
+    }
+  });
+
+  it("has a Rolls heading with the roll and frame counts from data", () => {
+    render(<CreativeRolls onOpen={() => {}} />);
+    expect(screen.getByRole("heading", { level: 2, name: "Rolls" })).toBeInTheDocument();
+    expect(screen.getByText(`${creative.rolls.length} rolls · ${total} frames`)).toBeInTheDocument();
+    expect(screen.getByText("4 rolls · 14 frames")).toBeInTheDocument();
+  });
+
+  it("puts each roll's meta in a sticky left column beside the sheet", () => {
+    const { container } = render(<CreativeRolls onOpen={() => {}} />);
+    const articles = container.querySelectorAll("article");
+    creative.rolls.forEach((roll, ri) => {
+      const article = articles[ri];
+      expect(article).toHaveClass("grid", "md:grid-cols-[200px_1fr]", "gap-8");
+      const meta = article.querySelector("[data-roll-meta]") as HTMLElement;
+      expect(meta).toBe(article.firstElementChild);
+      expect(meta).toHaveClass("md:sticky", "md:top-24", "md:self-start");
+      expect(meta.textContent).toContain(`R${ri + 1}`);
+      expect(meta.querySelector("h3")?.textContent).toBe(roll.title);
+      const n = roll.frames.length;
+      expect(meta.textContent).toContain(`${n} ${n === 1 ? "frame" : "frames"}`);
+      expect(meta.querySelector("hr")).toHaveClass("border-line");
+    });
+  });
+
+  it("sizes images for the narrower sheet column", () => {
+    const { container } = render(<CreativeRolls onOpen={() => {}} />);
+    for (const img of container.querySelectorAll("article img")) {
+      expect(img).toHaveAttribute("sizes", "(min-width:1024px) 30vw, (min-width:640px) 50vw, 100vw");
     }
   });
 

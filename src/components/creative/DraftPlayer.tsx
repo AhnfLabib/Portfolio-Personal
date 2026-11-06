@@ -83,7 +83,7 @@ export default function DraftPlayer({ draft, index, playing, onPlay, onPause, on
           if (audioRef.current) audioRef.current.currentTime = value;
           setCurrent(value);
         }}
-        className="accent-accent flex-1"
+        className="accent-accent h-1 w-full min-w-0 flex-1 cursor-pointer appearance-none bg-line [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-accent [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent"
       />
       <span className="shrink-0 font-mono text-xs text-ink-faint tabular-nums">
         {formatTime(current)} / {formatTime(draft.duration)}

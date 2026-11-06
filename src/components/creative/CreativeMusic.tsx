@@ -14,7 +14,7 @@ export default function CreativeMusic(): JSX.Element {
     if (mounted) return;
     const list = listRef.current;
     if (!list) return;
-    // One observer for the whole grid: the three Instagram bundles load together, only when near.
+    // One observer for the whole strip: the three Instagram bundles load together, only when near.
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) {
@@ -42,10 +42,13 @@ export default function CreativeMusic(): JSX.Element {
           {music.handle} →
         </a>
 
-        <ul ref={listRef} className="mt-12 grid gap-6 sm:grid-cols-3">
+        <ul
+          ref={listRef}
+          className="mt-10 flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 [scrollbar-width:thin]"
+        >
           {music.covers.map(({ title, artist, reel }) => (
-            <li key={reel}>
-              <div className={`aspect-[9/16] max-h-[70vh] w-full max-w-[calc(70vh*9/16)]${mounted ? "" : " bg-surface-2"}`}>
+            <li key={reel} className="snap-start shrink-0 w-[min(70vw,300px)]">
+              <div className={`aspect-[9/16] w-full${mounted ? "" : " bg-surface-2"}`}>
                 {mounted && (
                   <iframe
                     src={`https://www.instagram.com/reel/${reel}/embed/`}
@@ -70,8 +73,8 @@ export default function CreativeMusic(): JSX.Element {
         </ul>
 
         {music.drafts.length > 0 && (
-          <>
-            <h3 className="mt-16 font-display text-2xl text-ink">Drafts</h3>
+          <div className="mt-16 border border-line bg-surface-2 p-6 sm:p-8">
+            <h3 className="font-display text-2xl text-ink">Drafts</h3>
             <p className="mt-1 font-mono text-xs uppercase tracking-wide text-ink-faint">{music.draftsLine}</p>
             <div className="mt-6 border-t border-line">
               {music.drafts.map((draft, i) => (
@@ -86,7 +89,7 @@ export default function CreativeMusic(): JSX.Element {
                 />
               ))}
             </div>
-          </>
+          </div>
         )}
       </div>
     </section>
