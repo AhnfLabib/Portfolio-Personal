@@ -14,7 +14,7 @@ import { frameSrcSet } from "./frameSrc";
  * photo in a cell taller than 16:9 is fitted by height, so the fetch width
  * follows cell height × 1.78, not cell width.
  * Slot 0 (the LCP frame, r4-02, 16:9) has 800/1200/1600w files: at lg+ its
- * ~570 × 681 px cell at 1440 needs 681 × 1.78 ≈ 1212 px (84vw ≈ 1210); below lg
+ * ~570 × 681 px cell at 1440 needs 681 × 1.78 ≈ 1212 px (83vw ≈ 1195, a 1% upscale of the 1200w file; 84vw would tip 1x desktops to 1600w); below lg
  * the square phone cell is ~358 px tall at 390 (viewport − 32 px gutters), so
  * it needs 358 × 1.78 ≈ 637 px (165vw ≈ 644 at 390). DPR1/1.5 devices land on
  * the 1200w file instead of upscaling the 800w one. The <link rel="preload">
