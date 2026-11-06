@@ -154,12 +154,12 @@ function levenshtein(a: string, b: string): number {
   return prev[b.length];
 }
 
-/** Closest command name within Levenshtein distance 2, or null. */
+/** Closest visible command name within Levenshtein distance 2, or null (hidden aliases are never suggested). */
 export function suggest(word: string): string | null {
   const w = word.toLowerCase();
   let best: string | null = null;
   let bestDist = 3;
-  for (const name of COMMAND_NAMES) {
+  for (const name of VISIBLE) {
     if (Math.abs(name.length - w.length) >= bestDist) continue;
     const d = levenshtein(w, name);
     if (d < bestDist) [best, bestDist] = [name, d];

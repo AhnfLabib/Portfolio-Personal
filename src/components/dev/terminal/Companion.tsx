@@ -207,7 +207,7 @@ export function Companions(props: {
   const lastLoveTick = useRef(loveTick);
   const thinkingRef = useRef(thinking);
   /** Re-runs the cursor check from the last pointer position (set by the tracking effect). */
-  const recheckRef = useRef<(() => void) | null>(null);
+  const recheckRef = useRef<((rearmChatter?: boolean) => void) | null>(null);
   /** A reaction bubble (the love ♥) or the click menu is showing: chatter neither replaces nor clears it. */
   const reactingRef = useRef(false);
   /** The click menu is open: the cat holds still (looking up) and ignores the cursor. */
@@ -411,8 +411,10 @@ export function Companions(props: {
     };
     window.addEventListener("pointermove", onMove, { passive: true });
     document.addEventListener("pointerout", onOut, { passive: true });
-    recheckRef.current = () => {
+    recheckRef.current = (rearmChatter = false) => {
       if (last) track(last);
+      // the game froze it near the cursor (cancelling chatter): a cursor still near is no new arrival, so re-arm here
+      if (rearmChatter && zone !== "far") chatter();
     };
     return () => {
       recheckRef.current = null;
@@ -462,7 +464,7 @@ export function Companions(props: {
       return;
     }
     if (s) commitRef.current?.(holdWander(s, timers.now(), MENU_CLOSE_MS));
-    recheckRef.current?.(); // the cursor may be near
+    recheckRef.current?.(true); // the cursor may be near: look again, and chatter again if it is
   }, [frozen, timers]);
 
   // Love is state too: 4 s of it, with a heart.
@@ -577,7 +579,8 @@ export function Companions(props: {
                           : PHASE_POSE[phase];
   const catSprite = (shades ? CAT_SHADES : CAT)[skin][catPose];
   // every hop step crouches again: a new step restarts the hop's frames
-  const catFrame = useFrame(timers, "cat-frame", catSprite, !reduceMotion && !frozen, phase === "hop" ? roam?.since : null);
+  // frozen it holds still, but a hop in mid-air plays out (else the crouch frame would hang in the air)
+  const catFrame = useFrame(timers, "cat-frame", catSprite, !reduceMotion && (!frozen || phase === "hop"), phase === "hop" ? roam?.since : null);
 
   const facing = ORIENTED.has(catPose) ? 1 : thinking ? -1 : (roam?.facing ?? 1);
   // Stable per facing, so the memoized cat sprite re-renders only on pose/frame/facing changes.

@@ -43,7 +43,7 @@ function Harness(props: { reduceMotion?: boolean; returnTo?: HTMLElement | null;
       skin="default"
       shades={false}
       reduceMotion={props.reduceMotion ?? false}
-      paletteFrom={document.body}
+      paletteFrom={{ current: document.body }}
       returnFocusTo={props.returnTo ?? null}
     />
   );
@@ -58,13 +58,14 @@ afterEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();
   document.body.style.overflow = "";
+  document.body.style.paddingRight = "";
 });
 
 describe("CatGame", () => {
   it("renders nothing while closed", () => {
     stubCanvas();
     render(
-      <CatGame open={false} onClose={() => {}} skin="default" shades={false} reduceMotion={false} paletteFrom={null} returnFocusTo={null} />,
+      <CatGame open={false} onClose={() => {}} skin="default" shades={false} reduceMotion={false} paletteFrom={{ current: null }} returnFocusTo={null} />,
     );
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -278,6 +279,31 @@ describe("CatGame", () => {
     expect(document.body.style.overflow).toBe("hidden");
     fireEvent.keyDown(game(), { key: "Escape", code: "Escape" });
     expect(document.body.style.overflow).toBe("scroll");
+  });
+
+  it("pads the body by the scrollbar width while locked, so the page does not shift, and restores it after", () => {
+    stubCanvas();
+    vi.spyOn(window, "innerWidth", "get").mockReturnValue(1000);
+    vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(985);
+    document.body.style.paddingRight = "3px";
+    render(<Harness />);
+    expect(document.body.style.paddingRight).toBe("15px");
+    fireEvent.keyDown(game(), { key: "Escape", code: "Escape" });
+    expect(document.body.style.paddingRight).toBe("3px");
+  });
+
+  it("reads the palette element from the ref when it opens, not when the parent rendered", () => {
+    stubCanvas();
+    const ref: { current: HTMLElement | null } = { current: null };
+    const props = { onClose: () => {}, skin: "default" as const, shades: false, reduceMotion: false, paletteFrom: ref, returnFocusTo: null };
+    const { rerender } = render(<CatGame open={false} {...props} />);
+    const el = document.createElement("div");
+    document.body.append(el);
+    ref.current = el;
+    const computed = vi.spyOn(window, "getComputedStyle");
+    rerender(<CatGame open {...props} />);
+    expect(computed).toHaveBeenCalledWith(el);
+    el.remove();
   });
 
   it("does not shake under reduced motion", () => {

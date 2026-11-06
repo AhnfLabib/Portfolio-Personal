@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FocusEvent, type JSX, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useId, useRef, useState, type FocusEvent, type JSX, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { SkinName } from "../commands";
 import { CAT, CAT_SHADES } from "../sprites";
@@ -35,8 +35,8 @@ export interface CatGameProps {
   skin: SkinName;
   shades: boolean;
   reduceMotion: boolean;
-  /** The element whose computed style supplies the palette tokens (the terminal wrapper). */
-  paletteFrom: Element | null;
+  /** The element whose computed style supplies the palette tokens (the terminal wrapper), read when the game opens. */
+  paletteFrom: RefObject<HTMLElement | null>;
   /** Where focus goes when the game closes: the cat button, or the terminal input after `play`. */
   returnFocusTo: HTMLElement | null;
 }
@@ -57,7 +57,7 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
   const closingRef = useRef(false);
   // Read once per open.
   const [initialBest] = useState(readBest);
-  const [colours] = useState<Colours>(() => resolvePalette(paletteFrom ?? document.documentElement));
+  const [colours] = useState<Colours>(() => resolvePalette(paletteFrom.current ?? document.documentElement));
   const [dpr] = useState(() => window.devicePixelRatio || 1);
   const [best, setBest] = useState(initialBest);
   const [airborne, setAirborne] = useState(false);
@@ -69,7 +69,6 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
     s: null as unknown as GameState,
     acc: 0,
     last: null as number | null,
-    frame: 0,
     paused: false,
     best: initialBest,
     airborne: false,
@@ -78,7 +77,7 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
   if (live.current.s === null) live.current.s = createGame(initialBest, Math.random);
 
   const set = (shades ? CAT_SHADES : CAT)[skin];
-  const assets = useRef<Omit<Assets, "frame">>(null as unknown as Omit<Assets, "frame">);
+  const assets = useRef<Assets>(null as unknown as Assets);
   assets.current = { cat: set.walk, hop: set.hop, sleep: set.sleep, colours, reduceMotion };
 
   /** Tell React what changed in the world: the airborne flag, and game over (with the best score). */
@@ -106,7 +105,7 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = false;
-      render(ctx, live.current.s, { ...assets.current, frame: live.current.frame });
+      render(ctx, live.current.s, assets.current);
     };
     let raf = 0;
     const tick = (ts: number) => {
@@ -123,7 +122,6 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
         L.s = step(L.s, FRAME, Math.random);
         L.acc -= FRAME;
       }
-      L.frame++;
       draw();
       sync();
     };
@@ -134,13 +132,18 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dpr]);
 
-  // Open: lock the page's scroll and focus the game; closing restores the scroll.
+  // Open: lock the page's scroll and focus the game; closing restores the scroll. The body is padded by the
+  // scrollbar's width while locked, so a classic (space-taking) scrollbar going away does not shift the page.
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const body = document.body.style;
+    const prev = { overflow: body.overflow, paddingRight: body.paddingRight };
+    const scrollbar = window.innerWidth - document.documentElement.clientWidth;
+    body.overflow = "hidden";
+    if (scrollbar > 0) body.paddingRight = `${scrollbar}px`;
     wrapperRef.current?.focus({ preventScroll: true });
     return () => {
-      document.body.style.overflow = prev;
+      body.overflow = prev.overflow;
+      body.paddingRight = prev.paddingRight;
     };
   }, []);
 

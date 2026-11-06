@@ -26,12 +26,11 @@ function recordingContext() {
 }
 
 const colours: Colours = { "#": "#111", s: "#222", f: "#333", a: "#444", b: "#555" };
-const assets = (over: Partial<{ reduceMotion: boolean; frame: number }> = {}) => ({
+const assets = (over: Partial<{ reduceMotion: boolean }> = {}) => ({
   cat: CAT.default.walk,
   hop: CAT.default.hop,
   sleep: CAT.default.sleep,
   colours,
-  frame: 0,
   reduceMotion: false,
   ...over,
 });
@@ -109,11 +108,6 @@ describe("render", () => {
     expect(scoreRects(on.rects).length).toBeGreaterThan(0);
     for (const r of scoreRects(on.rects)) expect(r.fill).toBe(colours.a);
 
-    // the same moment at a different rAF tick count looks the same
-    const sameT = recordingContext();
-    render(sameT.ctx, scene({ score: 200, t: 0.05 }), assets({ frame: 7 }));
-    expect(sameT.rects).toEqual(on.rects);
-
     const off = recordingContext();
     render(off.ctx, scene({ score: 200, t: 0.2 }), assets());
     expect(scoreRects(off.rects)).toHaveLength(0);
@@ -149,14 +143,6 @@ describe("render", () => {
     // 8 px run → the horizon moved 2 px left
     expect(at(8).map((x) => x + 2).filter((x) => x < WORLD.w)).toEqual(start.filter((x) => x >= 2));
     expect(at(8)).not.toEqual(start);
-  });
-
-  it("the shake jitter follows the game clock, not the frame count", () => {
-    const a = recordingContext();
-    render(a.ctx, scene({ over: true, shake: 0.1, t: 1 }), assets({ frame: 1 }));
-    const b = recordingContext();
-    render(b.ctx, scene({ over: true, shake: 0.1, t: 1 }), assets({ frame: 2 }));
-    expect(a.raw.translate.mock.calls).toEqual(b.raw.translate.mock.calls);
   });
 });
 

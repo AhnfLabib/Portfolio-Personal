@@ -57,6 +57,14 @@ function pointer(x: number, y: number) {
   act(() => void window.dispatchEvent(new MouseEvent("pointermove", { clientX: x, clientY: y })));
   advance(20);
 }
+/** A repeatable Math.random: the Park–Miller minimal standard generator from `seed`. */
+function seedRandom(seed: number) {
+  let state = seed;
+  vi.spyOn(Math, "random").mockImplementation(() => {
+    state = (state * 16807) % 2147483647;
+    return state / 2147483647;
+  });
+}
 const pointerListeners = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.filter(([type]) => type === "pointermove").length;
 
 beforeEach(() => {
@@ -265,11 +273,7 @@ describe("Companions", () => {
 
   it("over five minutes it naps, yawns, looks, hops (crouching first) and keeps to the edges", () => {
     // a seeded rng and a narrow card, so the long walk is quick and repeatable
-    let seed = 7;
-    vi.spyOn(Math, "random").mockImplementation(() => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    });
+    seedRandom(7);
     vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
     const t = setup();
     const poses = new Set<string>();
@@ -283,11 +287,7 @@ describe("Companions", () => {
   }, 30_000);
 
   it("every hop step starts with a crouch", () => {
-    let seed = 7;
-    vi.spyOn(Math, "random").mockImplementation(() => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    });
+    seedRandom(7);
     vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
     const t = setup();
     for (let i = 0; i < 2000 && t.cat() !== "hop"; i++) advance(100);
@@ -306,6 +306,23 @@ describe("Companions", () => {
     expect(steps).toBeGreaterThanOrEqual(2);
   }, 30_000);
 
+  it("a game opened mid-hop lets the hop play out: the cat leaves the crouch in the air", () => {
+    seedRandom(7);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
+    const t = setup();
+    for (let i = 0; i < 2000 && t.cat() !== "hop"; i++) advance(100);
+    expect(t.cat()).toBe("hop");
+    t.update({ frozen: true });
+    const frames = new Set<string>();
+    for (let i = 0; i < 100 && t.cat() === "hop"; i++) {
+      frames.add(t.catSvg().getAttribute("data-frame")!);
+      advance(20);
+    }
+    expect([...frames].some((f) => f !== "0")).toBe(true);
+    for (let i = 0; i < 100 && t.cat() !== "sit"; i++) advance(20);
+    expect(t.cat()).toBe("sit"); // then it sits for the game
+  }, 30_000);
+
   it("skin swaps the cat's sprite", () => {
     const t = setup();
     const cat = t.catSvg().innerHTML;
@@ -314,11 +331,7 @@ describe("Companions", () => {
   });
 
   it("re-measures the card on resize: a cat far along the top track is pulled in to the new corner", () => {
-    let seed = 7;
-    vi.spyOn(Math, "random").mockImplementation(() => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    });
+    seedRandom(7);
     const t = setup();
     const x = () => Number(/translate\((-?[\d.]+)px/.exec(t.catBox().style.transform)![1]);
     for (let i = 0; i < 600 && !(x() > 120 && t.cat() !== "walk" && t.cat() !== "hop"); i++) advance(100);
@@ -400,6 +413,23 @@ describe("Companions", () => {
       expect(t.cat()).not.toMatch(/^look-/);
       advance(30_000);
       expect(t.bubble()).toBeNull(); // no chatter once it has left
+    });
+
+    it("the game closing with the cursor still near: chatter starts again within the usual interval", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const t = setup();
+      advance(100);
+      pointer(CAT_RECT.x + CAT_RECT.w + 100, CAT_RECT.y + 16); // near
+      expect(t.cat()).toBe("look-r");
+      t.update({ frozen: true });
+      advance(1000);
+      t.update({ frozen: false });
+      let spoke = false;
+      for (let i = 0; i < 100 && !spoke; i++) {
+        advance(100); // up to 10 s, the longest chatter gap
+        spoke = t.bubble() !== null;
+      }
+      expect(spoke).toBe(true);
     });
 
     it("a pointerout into another element (relatedTarget set) is not leaving the window", () => {
@@ -576,11 +606,7 @@ describe("Companions", () => {
     });
 
     it("a hop in mid-air lands first, then the cat thinks", () => {
-      let seed = 7;
-      vi.spyOn(Math, "random").mockImplementation(() => {
-        seed = (seed * 16807) % 2147483647;
-        return seed / 2147483647;
-      });
+      seedRandom(7);
       vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
       const t = setup();
       for (let i = 0; i < 2000 && t.cat() !== "hop"; i++) advance(100);

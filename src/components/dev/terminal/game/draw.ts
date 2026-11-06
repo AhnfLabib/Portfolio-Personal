@@ -11,8 +11,6 @@ export interface Assets {
   hop: Sprite;
   sleep: Sprite;
   colours: Colours;
-  /** The rAF tick count. Timing (shake jitter, score flash) follows the game clock `s.t` instead, so every refresh rate looks the same. */
-  frame: number;
   reduceMotion: boolean;
 }
 

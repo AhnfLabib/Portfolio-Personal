@@ -417,6 +417,7 @@ describe("Terminal", () => {
   });
 
   // `!`: the unlayered `*` colour-transition rule in index.css otherwise beats these utilities.
+  // Class check only: jsdom cannot see the cascade; the computed transition is checked in Playwright (docs/superpowers/reports/2026-11-06-terminal-play-verification.md, fix 1).
   it("has a height transition that reduced motion removes", () => {
     setup();
     expect(screen.getByTestId("terminal-log")).toHaveClass(

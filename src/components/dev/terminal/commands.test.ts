@@ -166,4 +166,9 @@ describe("suggest/complete", () => {
     expect(complete("ex")).toEqual(["experience"]);
     expect(complete("s")).toEqual(["skills", "socials", "skin", "sudo"]);
   });
+
+  it("never suggests the hidden alias", () => {
+    expect(suggest("gam")).not.toBe("game");
+    expect(suggest("gmae")).not.toBe("game");
+  });
 });

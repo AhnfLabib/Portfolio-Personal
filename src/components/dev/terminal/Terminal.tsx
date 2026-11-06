@@ -296,7 +296,7 @@ export default function Terminal() {
         skin={state.skin}
         shades={state.shades}
         reduceMotion={reduceMotion}
-        paletteFrom={groupRef.current}
+        paletteFrom={groupRef}
         returnFocusTo={returnFocusTo}
       />
     </>
