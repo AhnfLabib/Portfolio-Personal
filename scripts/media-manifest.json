@@ -1,10 +1,4 @@
 {
-  "hero": {
-    "src": "/gallery/hero.jpg",
-    "width": 2000,
-    "height": 1125,
-    "alt": "A total solar eclipse at the diamond-ring moment."
-  },
   "rolls": [
     {
       "id": "light",
@@ -111,6 +105,24 @@
           "width": 1200,
           "height": 1600,
           "alt": "Half a face in sunglasses whose lens is inked with chess taunts."
+        },
+        {
+          "src": "/gallery/r4-02.jpg",
+          "width": 1600,
+          "height": 898,
+          "alt": "Two friends in dark coats standing in a doorway at night."
+        },
+        {
+          "src": "/gallery/r4-03.jpg",
+          "width": 1202,
+          "height": 1600,
+          "alt": "A portrait in a cream knit shirt against a grey studio wall."
+        },
+        {
+          "src": "/gallery/r4-04.jpg",
+          "width": 1202,
+          "height": 1600,
+          "alt": "Two friends back to back in a studio, leather jacket and white shirt."
         }
       ]
     }

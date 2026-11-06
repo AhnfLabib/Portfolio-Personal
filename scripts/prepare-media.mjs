@@ -4,9 +4,9 @@
 //   node scripts/prepare-media.mjs --photos <dir> --audio <dir> --out public
 //
 // Crops any baked-in near-white film border first (see detectBorder), then
-// turns the supplied original photographs into public/gallery/*.jpg (hero at
-// 2000 px and roll frames at 1600 px on the long edge, plus -800 grid variants
-// at 800 px on the long edge; EXIF stripped,
+// turns the supplied original photographs into public/gallery/*.jpg (roll
+// frames at 1600 px on the long edge, plus -800 grid variants at 800 px on the
+// long edge; the hero wall reuses these files; EXIF stripped,
 // progressive mozjpeg), transcodes the draft recordings to
 // public/audio/<slug>.mp3, and writes scripts/media-manifest.json with the
 // Frame/Roll/Draft objects to paste into content.ts. Originals are not
@@ -16,14 +16,14 @@ import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "nod
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Supplied file names (the owner's numbering) → hero and rolls, in order. */
+/** Supplied file names (the owner's numbering) → rolls, in order. The hero
+ * wall has no files of its own: content.ts points it at roll frames. */
 export const PHOTO_MAP = {
-  hero: "8.jpg",
   rolls: {
     light: ["9.jpg", "5.jpg", "10.jpg", "6.jpg", "19.jpg"],
     street: ["7.jpg", "18.jpg", "12.jpg", "20.jpg"],
     stage: ["13.jpg", "14.jpg", "15.jpg", "16.jpg"],
-    portrait: ["11.jpg"],
+    portrait: ["11.jpg", "24.jpg", "25.jpg", "26.jpg"],
   },
 };
 
@@ -31,7 +31,6 @@ const ROLL_TITLES = { light: "Light", street: "Street", stage: "Stage", portrait
 
 /** One plain sentence per frame, in PHOTO_MAP order. */
 export const ALT = {
-  hero: "A total solar eclipse at the diamond-ring moment.",
   rolls: {
     light: [
       "The solar corona glowing around the moon during totality.",
@@ -52,11 +51,16 @@ export const ALT = {
       "A guitarist bathed in blue light, eyes closed.",
       "A guitarist and a saxophonist backlit by stage beams.",
     ],
-    portrait: ["Half a face in sunglasses whose lens is inked with chess taunts."],
+    portrait: [
+      "Half a face in sunglasses whose lens is inked with chess taunts.",
+      "Two friends in dark coats standing in a doorway at night.",
+      "A portrait in a cream knit shirt against a grey studio wall.",
+      "Two friends back to back in a studio, leather jacket and white shirt.",
+    ],
   },
 };
 
-export const BUDGETS = { hero: 400 * 1024, grid: 120 * 1024, gridRelaxed: 200 * 1024, small: 120 * 1024 };
+export const BUDGETS = { grid: 120 * 1024, gridRelaxed: 200 * 1024, small: 120 * 1024 };
 const Q_START = 80;
 const Q_MIN = 60;
 const Q_STEP = 5;
@@ -82,12 +86,11 @@ function altFor(id, f) {
 }
 
 /**
- * entries = { hero: {width,height}, rolls: {light: [{width,height}], ...},
+ * entries = { rolls: {light: [{width,height}], ...},
  *             drafts: [{title, slug, duration}] }
- * → { hero: Frame, rolls: Roll[], drafts: Draft[] }
+ * → { rolls: Roll[], drafts: Draft[] }
  */
 export function buildManifest(entries) {
-  const hero = { src: "/gallery/hero.jpg", width: entries.hero.width, height: entries.hero.height, alt: ALT.hero };
   const rolls = Object.keys(PHOTO_MAP.rolls).map((id, r) => ({
     id,
     title: ROLL_TITLES[id],
@@ -104,7 +107,7 @@ export function buildManifest(entries) {
     month: "",
     duration: Math.round(d.duration),
   }));
-  return { hero, rolls, drafts };
+  return { rolls, drafts };
 }
 
 /** Baked-in film borders: an edge row/column whose mean luminance is above
@@ -274,7 +277,6 @@ async function run(argv) {
   mkdirSync(audioDir, { recursive: true });
   const log = [];
 
-  const hero = await writeImage(sharp, join(photos, PHOTO_MAP.hero), join(galleryDir, "hero.jpg"), 2000, [BUDGETS.hero], log);
   const rolls = {};
   for (const [r, [id, files]] of Object.entries(PHOTO_MAP.rolls).entries()) {
     rolls[id] = [];
@@ -297,7 +299,7 @@ async function run(argv) {
     log.push(`${dest}  ${duration.toFixed(1)} s  ${kb(statSync(dest).size)}`);
   }
 
-  const manifest = buildManifest({ hero, rolls, drafts });
+  const manifest = buildManifest({ rolls, drafts });
   const manifestPath = join(dirname(fileURLToPath(import.meta.url)), "media-manifest.json");
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(log.join("\n"));

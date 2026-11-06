@@ -11,7 +11,7 @@ const total = creative.rolls.reduce((n, r) => n + r.frames.length, 0);
 describe("CreativeRolls", () => {
   it("renders every frame as a button with alt, width/height, aspect-ratio, lazy", () => {
     const { container } = render(<CreativeRolls onOpen={() => {}} />);
-    expect(total).toBe(14);
+    expect(total).toBe(17);
     expect(container.querySelector("section#rolls")).not.toBeNull();
     expect(container.querySelectorAll("article")).toHaveLength(creative.rolls.length);
     const buttons = screen.getAllByRole("button");
@@ -66,7 +66,7 @@ describe("CreativeRolls", () => {
     expect(h2).toHaveClass("text-[2.5rem]", "sm:text-[3rem]");
     expect(h2).not.toHaveClass("text-[2rem]");
     expect(screen.getByText(`${creative.rolls.length} rolls · ${total} frames`)).toBeInTheDocument();
-    expect(screen.getByText("4 rolls · 14 frames")).toBeInTheDocument();
+    expect(screen.getByText("4 rolls · 17 frames")).toBeInTheDocument();
   });
 
   it("puts each roll's meta in a sticky left column beside the sheet", () => {

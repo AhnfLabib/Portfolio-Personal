@@ -13,7 +13,7 @@ describe("nextIndex", () => {
   it("nextIndex crosses rolls and clamps", () => {
     expect(nextIndex(rolls, { roll: 0, frame: 4 }, 1)).toEqual({ roll: 1, frame: 0 });
     expect(nextIndex(rolls, { roll: 1, frame: 0 }, -1)).toEqual({ roll: 0, frame: 4 });
-    expect(nextIndex(rolls, { roll: 3, frame: 0 }, 1)).toEqual({ roll: 3, frame: 0 });
+    expect(nextIndex(rolls, { roll: 3, frame: 3 }, 1)).toEqual({ roll: 3, frame: 3 });
     expect(nextIndex(rolls, { roll: 0, frame: 0 }, -1)).toEqual({ roll: 0, frame: 0 });
   });
 });
@@ -31,8 +31,8 @@ describe("flatNeighbours", () => {
       prev: undefined,
       next: rolls[0].frames[1],
     });
-    expect(flatNeighbours(rolls, { roll: 3, frame: 0 })).toEqual({
-      prev: rolls[2].frames[3],
+    expect(flatNeighbours(rolls, { roll: 3, frame: 3 })).toEqual({
+      prev: rolls[3].frames[2],
       next: undefined,
     });
   });

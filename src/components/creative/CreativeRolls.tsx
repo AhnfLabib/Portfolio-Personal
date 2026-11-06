@@ -1,14 +1,6 @@
-import { about, creative, type Frame } from "../../data/content";
+import { about, creative } from "../../data/content";
 import { frameLabel } from "./rollLayout";
-
-function srcFor800(src: string): string {
-  return src.replace(/\.jpg$/, "-800.jpg");
-}
-
-/** The -800 files are resized on the long edge, so portraits are narrower than 800. */
-function widthFor800(frame: Frame): number {
-  return Math.round(800 * Math.min(1, frame.width / frame.height));
-}
+import { frameSrcSet } from "./frameSrc";
 
 const totalFrames = creative.rolls.reduce((n, roll) => n + roll.frames.length, 0);
 
@@ -54,7 +46,7 @@ export default function CreativeRolls({
                   >
                     <img
                       src={frame.src}
-                      srcSet={`${srcFor800(frame.src)} ${widthFor800(frame)}w, ${frame.src} ${frame.width}w`}
+                      srcSet={frameSrcSet(frame)}
                       sizes="(min-width:1024px) 30vw, (min-width:640px) 50vw, 100vw"
                       alt={frame.alt}
                       width={frame.width}

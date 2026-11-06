@@ -176,7 +176,7 @@ describe("Lightbox", () => {
     expect(screen.getByRole("button", { name: "Next frame" })).not.toHaveAttribute("aria-disabled");
     await user.click(prev);
     expect(onNavigate).not.toHaveBeenCalled();
-    rerender(<Lightbox {...props} pos={{ roll: 3, frame: 0 }} />);
+    rerender(<Lightbox {...props} pos={{ roll: 3, frame: 3 }} />);
     const next = screen.getByRole("button", { name: "Next frame" });
     expect(next).toHaveAttribute("aria-disabled", "true");
     await user.click(next);

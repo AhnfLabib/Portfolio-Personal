@@ -3,15 +3,17 @@ import { it, expect } from "vitest";
 import sharp from "sharp";
 import { PHOTO_MAP, ALT, DRAFTS, slugify, buildManifest, findDraftSource, parseArgs, borderCrop } from "./prepare-media.mjs";
 
-// The brief said 15 here, but its own roll lists (5+4+4+1) and the spec
-// ("15 are used" = hero + 14) give 14 roll frames.
-it("maps 15 of the supplied photographs to hero + 14 roll frames", () => {
-  expect(PHOTO_MAP.hero).toBe("8.jpg");
-  expect(Object.values(PHOTO_MAP.rolls).flat()).toHaveLength(14);
+// Light 5 + Street 4 + Stage 4 + Portrait 4 = 17 roll frames. The eclipse
+// (8.jpg) no longer has a hero file of its own: the hero is a wall of roll
+// frames (content.ts), and the eclipse stays in Light as r1-01 (9.jpg).
+it("maps 17 of the supplied photographs to roll frames and has no hero file", () => {
+  expect(PHOTO_MAP).not.toHaveProperty("hero");
+  expect(ALT).not.toHaveProperty("hero");
+  expect(Object.values(PHOTO_MAP.rolls).flat()).toHaveLength(17);
   expect(PHOTO_MAP.rolls.light).toEqual(["9.jpg", "5.jpg", "10.jpg", "6.jpg", "19.jpg"]);
   expect(PHOTO_MAP.rolls.street).toEqual(["7.jpg", "18.jpg", "12.jpg", "20.jpg"]);
   expect(PHOTO_MAP.rolls.stage).toEqual(["13.jpg", "14.jpg", "15.jpg", "16.jpg"]);
-  expect(PHOTO_MAP.rolls.portrait).toEqual(["11.jpg"]);
+  expect(PHOTO_MAP.rolls.portrait).toEqual(["11.jpg", "24.jpg", "25.jpg", "26.jpg"]);
 });
 
 it("slugify", () => {
@@ -21,13 +23,13 @@ it("slugify", () => {
 
 it("buildManifest names files r<roll>-<nn> and keeps dimensions", () => {
   const m = buildManifest({
-    hero: { width: 2000, height: 1125 },
     rolls: { light: [{ width: 2000, height: 1125 }], street: [], stage: [], portrait: [] },
     drafts: [{ title: "Fog", slug: "fog", duration: 43.9 }],
   });
   expect(m.rolls[0]).toMatchObject({ id: "light", title: "Light" });
   expect(m.rolls[0].frames[0]).toMatchObject({ src: "/gallery/r1-01.jpg", width: 2000, height: 1125 });
   expect(m.drafts[0]).toEqual({ title: "Fog", src: "/audio/fog.mp3", month: "", duration: 44 });
+  expect(m).not.toHaveProperty("hero");
 });
 
 it("has exactly one alt sentence per frame in every roll", () => {
@@ -39,7 +41,7 @@ it("has exactly one alt sentence per frame in every roll", () => {
 
 it("buildManifest throws rather than emit an empty alt", () => {
   const two = [{ width: 1, height: 1 }, { width: 1, height: 1 }];
-  expect(() => buildManifest({ hero: { width: 1, height: 1 }, rolls: { portrait: two }, drafts: [] })).toThrow(/alt/);
+  expect(() => buildManifest({ rolls: { light: [], street: [], stage: [], portrait: [...two, ...two, ...two] }, drafts: [] })).toThrow(/alt/);
 });
 
 it("drafts are keyed by slug with fixed titles", () => {

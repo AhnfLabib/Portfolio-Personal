@@ -14,7 +14,29 @@ describe("creative content model", () => {
         expect(f.height).toBeGreaterThan(0);
         expect(f.alt.length).toBeGreaterThan(10);
       }
-    expect(existsSync(`public${creative.hero.image.src}`)).toBe(true);
+  });
+
+  it("hero wall is exactly five frames, each one a roll frame (no duplicate files)", () => {
+    const wall = creative.hero.wall;
+    expect(wall).toHaveLength(5);
+    const rollFrames = creative.rolls.flatMap((r) => r.frames);
+    for (const f of wall) expect(rollFrames).toContain(f);
+    expect(wall.map((f) => f.src)).toEqual([
+      "/gallery/r4-02.jpg",
+      "/gallery/r4-04.jpg",
+      "/gallery/r3-01.jpg",
+      "/gallery/r2-04.jpg",
+      "/gallery/r4-03.jpg",
+    ]);
+    expect(wall[0].alt).toBe("Two friends in dark coats standing in a doorway at night.");
+    expect(wall[1].alt).toBe("Two friends back to back in a studio, leather jacket and white shirt.");
+    expect(wall[4].alt).toBe("A portrait in a cream knit shirt against a grey studio wall.");
+    expect(creative.hero).not.toHaveProperty("image");
+  });
+
+  it("the old eclipse hero file is gone; the eclipse stays in Light", () => {
+    expect(existsSync("public/gallery/hero.jpg")).toBe(false);
+    expect(creative.rolls[0].frames[0].src).toBe("/gallery/r1-01.jpg");
   });
 
   it("rolls are R1..R4 in spec order with the spec's frame counts", () => {
@@ -22,7 +44,7 @@ describe("creative content model", () => {
       ["light", 5],
       ["street", 4],
       ["stage", 4],
-      ["portrait", 1],
+      ["portrait", 4],
     ]);
   });
 

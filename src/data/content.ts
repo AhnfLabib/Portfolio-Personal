@@ -273,8 +273,145 @@ export interface Draft {
   duration: number;
 }
 
+const creativeRolls: Roll[] = [
+  {
+    id: "light",
+    title: "Light",
+    frames: [
+      {
+        src: "/gallery/r1-01.jpg",
+        width: 1600,
+        height: 900,
+        alt: "The solar corona glowing around the moon during totality.",
+      },
+      {
+        src: "/gallery/r1-02.jpg",
+        width: 1600,
+        height: 1226,
+        alt: "A living room with a TV at golden hour, sunlight striping the wall.",
+      },
+      {
+        src: "/gallery/r1-03.jpg",
+        width: 1600,
+        height: 900,
+        alt: "A white cupola lit from inside at dusk, framed by trees.",
+      },
+      {
+        src: "/gallery/r1-04.jpg",
+        width: 1600,
+        height: 1226,
+        alt: "A dim living room with a glass coffee table and a checkered rug.",
+      },
+      {
+        src: "/gallery/r1-05.jpg",
+        width: 1600,
+        height: 900,
+        alt: "A porch with two rocking chairs beside a large oak trunk.",
+      },
+    ],
+  },
+  {
+    id: "street",
+    title: "Street",
+    frames: [
+      {
+        src: "/gallery/r2-01.jpg",
+        width: 1600,
+        height: 900,
+        alt: "A Dhaka metro platform under an “Uttara North” departure board.",
+      },
+      {
+        src: "/gallery/r2-02.jpg",
+        width: 1600,
+        height: 900,
+        alt: "A ONE WAY sign in fog at night.",
+      },
+      {
+        src: "/gallery/r2-03.jpg",
+        width: 1200,
+        height: 1600,
+        alt: "A fisheye view from a car window of a brick downtown block.",
+      },
+      {
+        src: "/gallery/r2-04.jpg",
+        width: 1600,
+        height: 900,
+        alt: "A blue Mercedes 560 SL on a highway at dusk, traffic cones ahead.",
+      },
+    ],
+  },
+  {
+    id: "stage",
+    title: "Stage",
+    frames: [
+      {
+        src: "/gallery/r3-01.jpg",
+        width: 1520,
+        height: 853,
+        alt: "A singer silhouetted against a red LED wall.",
+      },
+      {
+        src: "/gallery/r3-02.jpg",
+        width: 1600,
+        height: 898,
+        alt: "A band silhouetted against a red wall, the drummer mid-hit.",
+      },
+      {
+        src: "/gallery/r3-03.jpg",
+        width: 898,
+        height: 1600,
+        alt: "A guitarist bathed in blue light, eyes closed.",
+      },
+      {
+        src: "/gallery/r3-04.jpg",
+        width: 1600,
+        height: 898,
+        alt: "A guitarist and a saxophonist backlit by stage beams.",
+      },
+    ],
+  },
+  {
+    id: "portrait",
+    title: "Portrait",
+    frames: [
+      {
+        src: "/gallery/r4-01.jpg",
+        width: 1200,
+        height: 1600,
+        alt: "Half a face in sunglasses whose lens is inked with chess taunts.",
+      },
+      {
+        src: "/gallery/r4-02.jpg",
+        width: 1600,
+        height: 898,
+        alt: "Two friends in dark coats standing in a doorway at night.",
+      },
+      {
+        src: "/gallery/r4-03.jpg",
+        width: 1202,
+        height: 1600,
+        alt: "A portrait in a cream knit shirt against a grey studio wall.",
+      },
+      {
+        src: "/gallery/r4-04.jpg",
+        width: 1202,
+        height: 1600,
+        alt: "Two friends back to back in a studio, leather jacket and white shirt.",
+      },
+    ],
+  },
+];
+
+/** The roll frame with this src: the hero wall shows roll frames, never copies. */
+function rollFrame(src: string): Frame {
+  for (const roll of creativeRolls) for (const f of roll.frames) if (f.src === src) return f;
+  throw new Error(`no roll frame ${src}`);
+}
+
 export const creative: {
-  hero: { image: Frame; line: string; cta: string };
+  /** wall: exactly five roll frames, in slot order: large, tall portrait,
+   * landscape, landscape, small portrait. */
+  hero: { wall: Frame[]; line: string; cta: string };
   statement: string;
   /** Mono pills under the statement. */
   tags: string[];
@@ -291,12 +428,13 @@ export const creative: {
   contact: { headline: string };
 } = {
   hero: {
-    image: {
-      src: "/gallery/hero.jpg",
-      width: 2000,
-      height: 1125,
-      alt: "A total solar eclipse at the diamond-ring moment.",
-    },
+    wall: [
+      rollFrame("/gallery/r4-02.jpg"),
+      rollFrame("/gallery/r4-04.jpg"),
+      rollFrame("/gallery/r3-01.jpg"),
+      rollFrame("/gallery/r2-04.jpg"),
+      rollFrame("/gallery/r4-03.jpg"),
+    ],
     line: "Indianapolis, IN · 35mm & digital · 2024–26",
     cta: "See the rolls",
   },
@@ -304,116 +442,7 @@ export const creative: {
     "I photograph what light does when nobody is posing: rooms at the end of the day, stages lit red, a street in fog, one eclipse. Between frames I play guitar.",
   tags: ["35mm", "Indianapolis", "slide guitar"],
   now: "shooting on 35mm around Indianapolis · learning slide guitar",
-  rolls: [
-    {
-      id: "light",
-      title: "Light",
-      frames: [
-        {
-          src: "/gallery/r1-01.jpg",
-          width: 1600,
-          height: 900,
-          alt: "The solar corona glowing around the moon during totality.",
-        },
-        {
-          src: "/gallery/r1-02.jpg",
-          width: 1600,
-          height: 1226,
-          alt: "A living room with a TV at golden hour, sunlight striping the wall.",
-        },
-        {
-          src: "/gallery/r1-03.jpg",
-          width: 1600,
-          height: 900,
-          alt: "A white cupola lit from inside at dusk, framed by trees.",
-        },
-        {
-          src: "/gallery/r1-04.jpg",
-          width: 1600,
-          height: 1226,
-          alt: "A dim living room with a glass coffee table and a checkered rug.",
-        },
-        {
-          src: "/gallery/r1-05.jpg",
-          width: 1600,
-          height: 900,
-          alt: "A porch with two rocking chairs beside a large oak trunk.",
-        },
-      ],
-    },
-    {
-      id: "street",
-      title: "Street",
-      frames: [
-        {
-          src: "/gallery/r2-01.jpg",
-          width: 1600,
-          height: 900,
-          alt: "A Dhaka metro platform under an “Uttara North” departure board.",
-        },
-        {
-          src: "/gallery/r2-02.jpg",
-          width: 1600,
-          height: 900,
-          alt: "A ONE WAY sign in fog at night.",
-        },
-        {
-          src: "/gallery/r2-03.jpg",
-          width: 1200,
-          height: 1600,
-          alt: "A fisheye view from a car window of a brick downtown block.",
-        },
-        {
-          src: "/gallery/r2-04.jpg",
-          width: 1600,
-          height: 900,
-          alt: "A blue Mercedes 560 SL on a highway at dusk, traffic cones ahead.",
-        },
-      ],
-    },
-    {
-      id: "stage",
-      title: "Stage",
-      frames: [
-        {
-          src: "/gallery/r3-01.jpg",
-          width: 1520,
-          height: 853,
-          alt: "A singer silhouetted against a red LED wall.",
-        },
-        {
-          src: "/gallery/r3-02.jpg",
-          width: 1600,
-          height: 898,
-          alt: "A band silhouetted against a red wall, the drummer mid-hit.",
-        },
-        {
-          src: "/gallery/r3-03.jpg",
-          width: 898,
-          height: 1600,
-          alt: "A guitarist bathed in blue light, eyes closed.",
-        },
-        {
-          src: "/gallery/r3-04.jpg",
-          width: 1600,
-          height: 898,
-          alt: "A guitarist and a saxophonist backlit by stage beams.",
-        },
-      ],
-    },
-    {
-      id: "portrait",
-      title: "Portrait",
-      frames: [
-        {
-          src: "/gallery/r4-01.jpg",
-          width: 1200,
-          height: 1600,
-          alt: "Half a face in sunglasses whose lens is inked with chess taunts.",
-        },
-      ],
-    },
-  ],
+  rolls: creativeRolls,
   music: {
     handle: "@labib.onrecord",
     url: "https://www.instagram.com/labib.onrecord/",
