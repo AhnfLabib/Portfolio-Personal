@@ -5,7 +5,7 @@ import type { ComponentProps } from "react";
 import { Companions } from "./Companion";
 
 type Props = ComponentProps<typeof Companions>;
-const base: Props = { skin: "default", shades: false, petTick: 0, reduceMotion: false, thinking: false };
+const base: Props = { skin: "default", shades: false, petTick: 0, reduceMotion: false, thinking: false, onPlay: () => {} };
 
 function setup(overrides: Partial<Props> = {}) {
   let props: Props = { ...base, ...overrides };
@@ -19,6 +19,8 @@ function setup(overrides: Partial<Props> = {}) {
     button,
     catBox: () => button().parentElement as HTMLElement,
     bubble: () => utils.container.querySelector("[data-bubble]")?.textContent ?? null,
+    menu: () => utils.queryByRole("menu", { name: "cat menu" }),
+    item: (name: string) => utils.getByRole("menuitem", { name }),
     snapshot: () => [svg().getAttribute("data-pose"), svg().getAttribute("data-frame"), (button().parentElement as HTMLElement).style.transform, svg().style.transform].join("|"),
     update: (next: Partial<Props>) => {
       props = { ...props, ...next };
@@ -607,30 +609,89 @@ describe("Companions", () => {
     });
   });
 
-  describe("clicking the cat", () => {
-    it("first click: a hop and a '!' bubble; then purr, a slow blink and a stretch in turn", () => {
-      const onCatClick = vi.fn();
-      const t = setup({ onCatClick });
+  describe("clicking the cat: the menu", () => {
+    it("a click opens the menu (the cat looks up, no bubble) with the first item focused", () => {
+      const t = setup();
+      expect(t.menu()).toBeNull();
       fireEvent.click(t.button());
-      expect(onCatClick).toHaveBeenCalledTimes(1);
-      expect(t.cat()).toBe("hop-react");
-      expect(t.bubble()).toBe("!");
-      advance(1500);
+      expect(t.menu()).not.toBeNull();
+      expect(t.cat()).toBe("look-up");
       expect(t.bubble()).toBeNull();
-      fireEvent.click(t.button());
-      expect(t.cat()).toBe("purr");
-      advance(2000);
-      fireEvent.click(t.button());
-      expect(t.cat()).toBe("slow-blink");
-      advance(1500);
-      fireEvent.click(t.button());
-      expect(t.cat()).toBe("stretch");
-      advance(1500);
-      fireEvent.click(t.button());
-      expect(t.cat()).toBe("purr");
+      expect(t.item("play a game")).toHaveFocus();
+      // inside the [data-cat] subtree, so the terminal's focus/click guards ignore it
+      expect(t.menu()!.closest("[data-cat]")).not.toBeNull();
+      expect(t.button().closest("[data-cat]")).not.toBeNull();
     });
 
-    it("the click does not bubble to the card", () => {
+    it("pet closes the menu and purrs with a ♥", () => {
+      const t = setup();
+      fireEvent.click(t.button());
+      fireEvent.click(t.item("pet"));
+      expect(t.menu()).toBeNull();
+      expect(t.cat()).toBe("purr");
+      expect(t.bubble()).toBe("♥");
+      expect(t.button()).toHaveFocus();
+      advance(2000);
+      expect(t.cat()).not.toBe("purr");
+    });
+
+    it("nope closes the menu and slow-blinks", () => {
+      const t = setup();
+      fireEvent.click(t.button());
+      fireEvent.click(t.item("nope"));
+      expect(t.menu()).toBeNull();
+      expect(t.cat()).toBe("slow-blink");
+      advance(1500);
+      expect(t.cat()).not.toBe("slow-blink");
+    });
+
+    it("play a game closes the menu and calls onPlay", () => {
+      const onPlay = vi.fn();
+      const t = setup({ onPlay });
+      fireEvent.click(t.button());
+      fireEvent.click(t.item("play a game"));
+      expect(onPlay).toHaveBeenCalledTimes(1);
+      expect(t.menu()).toBeNull();
+    });
+
+    it("Escape closes the menu and focuses the cat", () => {
+      const t = setup();
+      fireEvent.click(t.button());
+      fireEvent.keyDown(t.item("play a game"), { key: "Escape" });
+      expect(t.menu()).toBeNull();
+      expect(t.button()).toHaveFocus();
+    });
+
+    it("clicking the cat again closes it; a pointerdown outside closes it too", () => {
+      const t = setup();
+      fireEvent.click(t.button());
+      fireEvent.pointerDown(t.button()); // the cat's own press is not "outside"
+      expect(t.menu()).not.toBeNull();
+      fireEvent.click(t.button());
+      expect(t.menu()).toBeNull();
+      fireEvent.click(t.button());
+      fireEvent.pointerDown(document.body);
+      expect(t.menu()).toBeNull();
+    });
+
+    it("while open the cat neither wanders nor chatters, and holds look-up; it wanders on after", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const t = setup();
+      fireEvent.click(t.button());
+      const held = t.catBox().style.transform;
+      pointer(CAT_RECT.x - 100, CAT_RECT.y); // near: chatter would start
+      advance(20_000);
+      expect(t.catBox().style.transform).toBe(held);
+      expect(t.bubble()).toBeNull();
+      expect(t.cat()).toBe("look-up");
+      pointer(CAT_RECT.x - 500, CAT_RECT.y); // far
+      fireEvent.keyDown(t.item("play a game"), { key: "Escape" });
+      expect(t.cat()).not.toBe("look-up");
+      advance(20_000);
+      expect(t.catBox().style.transform).not.toBe(held);
+    }, 30_000);
+
+    it("neither the cat's click nor the menu's reaches the card", () => {
       const outer = vi.fn();
       const t = render(
         <div onClick={outer}>
@@ -638,31 +699,33 @@ describe("Companions", () => {
         </div>,
       );
       fireEvent.click(t.getByRole("button", { name: "the cat" }));
+      fireEvent.click(t.getByRole("menuitem", { name: "nope" }));
       expect(outer).not.toHaveBeenCalled();
     });
 
-    it("Enter and Space on the focused cat react like a click", async () => {
+    it("Enter and Space on the focused cat open and close the menu", async () => {
       vi.useRealTimers();
       const user = userEvent.setup();
-      const onCatClick = vi.fn();
-      const t = setup({ onCatClick });
+      const t = setup();
       t.button().focus();
       await user.keyboard("{Enter}");
-      expect(onCatClick).toHaveBeenCalledTimes(1);
-      expect(t.cat()).toBe("hop-react");
-      expect(t.bubble()).toBe("!");
+      expect(t.menu()).not.toBeNull();
+      expect(t.item("play a game")).toHaveFocus();
+      await user.keyboard("{Escape}");
+      expect(t.button()).toHaveFocus();
       await user.keyboard(" ");
-      expect(onCatClick).toHaveBeenCalledTimes(2);
+      expect(t.menu()).not.toBeNull();
+      await user.keyboard("{ArrowDown}{Enter}"); // pet
+      expect(t.menu()).toBeNull();
       expect(t.cat()).toBe("purr");
     });
 
-    it("under reduceMotion the reaction and its bubble still show", () => {
+    it("under reduceMotion the menu still opens and the cat looks up", () => {
       const t = setup({ reduceMotion: true });
       fireEvent.click(t.button());
-      expect(t.cat()).toBe("hop-react");
-      expect(t.bubble()).toBe("!");
-      advance(1500);
-      expect(t.bubble()).toBeNull();
+      expect(t.cat()).toBe("look-up");
+      fireEvent.click(t.item("nope"));
+      expect(t.cat()).toBe("slow-blink");
     });
   });
 });

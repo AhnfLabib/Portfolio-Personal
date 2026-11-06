@@ -53,15 +53,18 @@ describe("Terminal", () => {
     expect(t.container.querySelector('svg[data-sprite="cat"]')).not.toBeNull();
   });
 
-  it("clicking (or pressing Enter on) the cat reacts without activating the terminal", async () => {
+  it("clicking (or pressing Enter on) the cat opens its menu without activating the terminal", async () => {
     const t = setup();
     const cat = screen.getByRole("button", { name: "the cat" });
     await t.user.click(cat);
     expect(screen.queryByRole("textbox")).toBeNull();
-    expect(t.container.querySelector("[data-bubble]")).toHaveTextContent("!");
+    expect(screen.getByRole("menu", { name: "cat menu" })).toBeInTheDocument();
     expect(t.card()).toHaveAttribute("tabindex", "0");
     cat.focus();
-    await t.user.keyboard("{Enter}");
+    await t.user.keyboard("{Enter}"); // closes it
+    expect(screen.queryByRole("menu")).toBeNull();
+    await t.user.keyboard("{Enter}"); // opens it again
+    expect(screen.getByRole("menu")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
@@ -70,18 +73,40 @@ describe("Terminal", () => {
     const cat = screen.getByRole("button", { name: "the cat" });
     expect(fireEvent.pointerDown(cat)).toBe(false); // default prevented
     expect(fireEvent.mouseDown(cat)).toBe(false);
-    fireEvent.click(cat);
     expect(screen.queryByRole("textbox")).toBeNull();
     await t.user.click(cat); // user-event moves focus on mousedown unless it is prevented
-    expect(cat).not.toHaveFocus();
+    expect(cat).not.toHaveFocus(); // the menu it opened took focus instead
+    expect(screen.getByRole("menuitem", { name: "play a game" })).toHaveFocus();
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
-  it("clicking the cat while the terminal is active keeps the input focused", async () => {
+  it("clicking the cat while the terminal is active opens the menu and keeps the terminal active", async () => {
     const t = setup();
-    const input = await t.activate();
+    await t.activate();
     await t.user.click(screen.getByRole("button", { name: "the cat" }));
-    expect(input).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: "play a game" })).toHaveFocus();
+    expect(t.card()).toHaveAttribute("data-active", "true");
+  });
+
+  it("Escape in the menu does not deactivate the terminal", async () => {
+    const t = setup();
+    await t.activate();
+    await t.user.click(screen.getByRole("button", { name: "the cat" }));
+    expect(screen.getByRole("menu", { name: "cat menu" })).toBeInTheDocument();
+    await t.user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(t.card()).toHaveAttribute("data-active", "true");
+    expect(screen.getByRole("button", { name: "the cat" })).toHaveFocus();
+  });
+
+  it("menu use never activates the terminal", async () => {
+    const t = setup();
+    expect(t.card()).toHaveAttribute("data-active", "false");
+    await t.user.click(screen.getByRole("button", { name: "the cat" }));
+    await t.user.click(screen.getByRole("menuitem", { name: "nope" }));
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(t.card()).toHaveAttribute("data-active", "false");
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("the cat comes after the input (and hint links) in tab order; tabbing to it keeps the terminal active", async () => {

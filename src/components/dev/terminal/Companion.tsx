@@ -3,6 +3,7 @@ import type { SkinName } from "./commands";
 import { CAT, CAT_SHADES, PALETTE, toRects, type CatPose, type Sprite } from "./sprites";
 import { attendWander, holdWander, initialWander, stepTowardWander, stepWander, type WanderState } from "./wander";
 import { boundsOf, catBox, type Size } from "./layout";
+import { CatMenu } from "./CatMenu";
 import { facingFor, zoneFor, type Point, type Zone } from "./proximity";
 
 const PURR_MS = 2000;
@@ -22,13 +23,9 @@ const PAW_EVERY_MS = 2000;
 const HAPPY_MS = 1000;
 // Love (loveTick)
 const LOVE_MS = 4000;
-// Clicks: a hop and "!" the first time, then these in turn
-const HOP_REACT_MS = 600;
-const REACTIONS = [
-  { pose: "purr", ms: PURR_MS },
-  { pose: "slow-blink", ms: 1500 },
-  { pose: "stretch", ms: 1500 },
-] as const;
+// The click menu: "nope" is a slow blink; closing it any way leaves a beat in place before the cat wanders on
+const NOPE_MS = 1500;
+const MENU_CLOSE_MS = 600;
 // Ambient-motion timer keys (purr, reactions and bubbles are state, so they are not among them).
 const AMBIENT = ["wander", "cat-frame"];
 const TRACKING = ["chatter", "release", "paw", "step"];
@@ -48,7 +45,7 @@ const PHASE_POSE: Record<WanderState["phase"], CatPose> = {
 const ORIENTED: ReadonlySet<CatPose> = new Set(["look-l", "look-r"]);
 const between = ([lo, hi]: readonly [number, number]) => lo + Math.random() * (hi - lo);
 type Gaze = "l" | "r" | "up";
-type Reaction = "hop-react" | "slow-blink" | "stretch";
+type Reaction = "slow-blink";
 
 /**
  * One keyed scheduler for every timer the companions use; re-arming a key
@@ -181,10 +178,10 @@ export function Companions(props: {
   askOutcome?: "ok" | "fail" | null;
   /** Each change shows the love pose for 4 s with a ♥ bubble (wired to the AI answer in a later task). */
   loveTick?: number;
-  /** Called on every click/tap of the cat (after its reaction); the hook for a later mini-game. */
-  onCatClick?: () => void;
+  /** "play a game" in the cat's click menu. */
+  onPlay: () => void;
 }) {
-  const { skin, shades, petTick, reduceMotion, thinking, askOutcome = null, loveTick = 0, onCatClick } = props;
+  const { skin, shades, petTick, reduceMotion, thinking, askOutcome = null, loveTick = 0, onPlay } = props;
   const [timers] = useState(createTimers);
   const [wander, setWander] = useState<WanderState | null>(null);
   const [purr, setPurr] = useState(false);
@@ -195,6 +192,7 @@ export function Companions(props: {
   const [stepping, setStepping] = useState(false);
   const [happy, setHappy] = useState(false);
   const [love, setLove] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [size, setSize] = useState<Size>({ w: 0, h: 0 });
   const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -206,9 +204,10 @@ export function Companions(props: {
   const thinkingRef = useRef(thinking);
   /** Re-runs the cursor check from the last pointer position (set by the tracking effect). */
   const recheckRef = useRef<(() => void) | null>(null);
-  const clicks = useRef(0);
-  /** A reaction bubble (the love ♥, the click "!") is showing: chatter neither replaces nor clears it. */
+  /** A reaction bubble (the love ♥) or the click menu is showing: chatter neither replaces nor clears it. */
   const reactingRef = useRef(false);
+  /** The click menu is open: the cat holds still (looking up) and ignores the cursor. */
+  const menuRef = useRef(false);
 
   // The wrapper fills the card, so its box is the cat's territory.
   useLayoutEffect(() => {
@@ -240,8 +239,12 @@ export function Companions(props: {
     if (reduceMotion) return;
     const commit = (step: WanderState) => {
       const prev = wanderRef.current;
-      // while thinking it holds still facing the prompt (a hop in mid-air lands first)
-      const next = thinkingRef.current ? attendWander(step, timers.now(), -1) : step;
+      // while thinking it holds still facing the prompt; while the menu is open it just holds (a hop in mid-air lands first)
+      const next = thinkingRef.current
+        ? attendWander(step, timers.now(), -1)
+        : menuRef.current
+          ? holdWander(step, timers.now(), Infinity)
+          : step;
       wanderRef.current = next;
       setWander(next);
       // attending the cursor holds until the tracking says otherwise
@@ -267,7 +270,7 @@ export function Companions(props: {
   /** Cursor chatter: yields to a reaction bubble that is showing. */
   const say = useCallback(
     (word: string) => {
-      if (reactingRef.current) return;
+      if (reactingRef.current || menuRef.current) return;
       setBubble(word);
       timers.after("bubble", BUBBLE_MS, () => setBubble(null));
     },
@@ -333,6 +336,7 @@ export function Companions(props: {
     };
 
     const track = (p: Point) => {
+      if (menuRef.current) return; // the menu is open: it looks up at it, whatever the cursor does
       const el = buttonRef.current;
       const s = wanderRef.current;
       const commit = commitRef.current;
@@ -448,21 +452,58 @@ export function Companions(props: {
     startPurr();
   }, [petTick, startPurr]);
 
-  // Click/tap (and Enter/Space): a reaction in place. It never reaches the card, so the terminal stays as it is.
-  const onClick = (e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    const n = clicks.current++;
-    const next = n === 0 ? { pose: "hop-react" as const, ms: HOP_REACT_MS } : REACTIONS[(n - 1) % REACTIONS.length];
-    if (n === 0) sayReact("!");
+  // Click/tap (and Enter/Space): the menu opens in place of a bubble. It never reaches the card, so the terminal stays as it is.
+  const openMenu = () => {
+    menuRef.current = true;
+    reactingRef.current = true;
+    timers.cancel("bubble");
+    timers.cancel("reactBubble");
+    setBubble(null);
     timers.cancel("react");
     setReaction(null);
-    if (next.pose === "purr") startPurr();
-    else {
-      setReaction(next.pose);
-      timers.after("react", next.ms, () => setReaction(null));
-      hold(next.ms);
-    }
-    onCatClick?.();
+    setMenuOpen(true);
+    const s = wanderRef.current;
+    if (s) commitRef.current?.(s); // commit applies the menu's hold
+  };
+
+  /** Close the menu; focus inside it goes back to the cat (so Tab moves on from there), and after a beat it wanders on. */
+  const closeMenu = useCallback(() => {
+    if (!menuRef.current) return;
+    menuRef.current = false;
+    reactingRef.current = false;
+    setMenuOpen(false);
+    const menu = wrapperRef.current?.querySelector('[role="menu"]');
+    if (menu?.contains(document.activeElement)) buttonRef.current?.focus();
+    const s = wanderRef.current;
+    if (s) commitRef.current?.(holdWander(s, timers.now(), MENU_CLOSE_MS));
+    recheckRef.current?.(); // the cursor may still be near
+  }, [timers]);
+
+  const onClick = (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (menuRef.current) closeMenu();
+    else openMenu();
+  };
+  // The cat's own press is not "outside" the menu: the click that follows toggles it.
+  const onCatPointerDown = (e: { preventDefault(): void; stopPropagation(): void }) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const onMenuPet = () => {
+    closeMenu();
+    sayReact("♥");
+    startPurr();
+  };
+  const onMenuNope = () => {
+    closeMenu();
+    setReaction("slow-blink");
+    timers.after("react", NOPE_MS, () => setReaction(null));
+    hold(NOPE_MS);
+  };
+  const onMenuPlay = () => {
+    closeMenu();
+    onPlay();
   };
 
   const roam = reduceMotion ? null : wander;
@@ -471,7 +512,9 @@ export function Companions(props: {
   const catPose: CatPose =
     phase === "hop"
       ? "hop"
-      : (reaction ??
+      : menuOpen
+        ? "look-up"
+        : (reaction ??
         (love
           ? "love"
           : thinking
@@ -515,25 +558,33 @@ export function Companions(props: {
 
   return (
     <div ref={wrapperRef} className="pointer-events-none absolute inset-0">
-      <div className="absolute top-0 left-0" style={catBoxStyle}>
-        {bubble && (
-          <span
-            data-bubble=""
-            aria-hidden="true"
-            className="absolute bottom-full left-1/2 mb-0.5 -translate-x-1/2 rounded-sm border border-line bg-surface px-1 py-0.5 font-mono text-[10px] leading-none whitespace-nowrap text-ink"
-          >
-            {bubble}
-          </span>
+      {/* The cat and its menu share the [data-cat] subtree, which the terminal's focus/click handlers ignore. */}
+      <div data-cat="" className="absolute top-0 left-0" style={catBoxStyle}>
+        {menuOpen ? (
+          <div className="pointer-events-auto absolute bottom-full left-1/2 z-10 mb-0.5 -translate-x-1/2">
+            <CatMenu onPlay={onMenuPlay} onPet={onMenuPet} onNope={onMenuNope} onClose={closeMenu} />
+          </div>
+        ) : (
+          bubble && (
+            <span
+              data-bubble=""
+              aria-hidden="true"
+              className="absolute bottom-full left-1/2 mb-0.5 -translate-x-1/2 rounded-sm border border-line bg-surface px-1 py-0.5 font-mono text-[10px] leading-none whitespace-nowrap text-ink"
+            >
+              {bubble}
+            </span>
+          )
         )}
         <button
           ref={buttonRef}
           type="button"
           aria-label="the cat"
-          data-cat=""
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
           onClick={onClick}
           // A pointer press never moves focus: WebKit would hand it to the card, activating the terminal (and
           // opening the iOS keyboard); in Chromium an active terminal keeps its input focused. Keyboard focus still works.
-          onPointerDown={preventDefault}
+          onPointerDown={onCatPointerDown}
           onMouseDown={preventDefault}
           className="pointer-events-auto block cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >

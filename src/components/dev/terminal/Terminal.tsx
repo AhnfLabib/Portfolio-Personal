@@ -269,6 +269,7 @@ export default function Terminal() {
         thinking={state.asking}
         askOutcome={state.askOutcome}
         reduceMotion={reduceMotion}
+        onPlay={() => {}}
       />
     </div>
   );
