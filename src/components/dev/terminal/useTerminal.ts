@@ -38,6 +38,8 @@ export interface TerminalDeps {
   reduceMotion?: boolean;
   now?: () => Date;
   typeDelayMs?: number;
+  /** Called once per `play` effect; the caller opens the game. */
+  onPlay?: () => void;
 }
 
 const SKIN_KEY = "portfolio-terminal-skin";
@@ -303,6 +305,9 @@ export function useTerminal(deps: TerminalDeps = {}): [TerminalState, TerminalAp
               break;
             case "ask":
               question = e.question;
+              break;
+            case "play":
+              depsRef.current.onPlay?.();
               break;
           }
         }

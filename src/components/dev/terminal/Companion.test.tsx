@@ -5,7 +5,7 @@ import type { ComponentProps } from "react";
 import { Companions } from "./Companion";
 
 type Props = ComponentProps<typeof Companions>;
-const base: Props = { skin: "default", shades: false, petTick: 0, reduceMotion: false, thinking: false };
+const base: Props = { skin: "default", shades: false, petTick: 0, reduceMotion: false, thinking: false, frozen: false, onPlay: () => {} };
 
 function setup(overrides: Partial<Props> = {}) {
   let props: Props = { ...base, ...overrides };
@@ -19,6 +19,8 @@ function setup(overrides: Partial<Props> = {}) {
     button,
     catBox: () => button().parentElement as HTMLElement,
     bubble: () => utils.container.querySelector("[data-bubble]")?.textContent ?? null,
+    menu: () => utils.queryByRole("menu", { name: "cat menu" }),
+    item: (name: string) => utils.getByRole("menuitem", { name }),
     snapshot: () => [svg().getAttribute("data-pose"), svg().getAttribute("data-frame"), (button().parentElement as HTMLElement).style.transform, svg().style.transform].join("|"),
     update: (next: Partial<Props>) => {
       props = { ...props, ...next };
@@ -54,6 +56,14 @@ function stubMatchMedia() {
 function pointer(x: number, y: number) {
   act(() => void window.dispatchEvent(new MouseEvent("pointermove", { clientX: x, clientY: y })));
   advance(20);
+}
+/** A repeatable Math.random: the Park–Miller minimal standard generator from `seed`. */
+function seedRandom(seed: number) {
+  let state = seed;
+  vi.spyOn(Math, "random").mockImplementation(() => {
+    state = (state * 16807) % 2147483647;
+    return state / 2147483647;
+  });
 }
 const pointerListeners = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.filter(([type]) => type === "pointermove").length;
 
@@ -151,6 +161,30 @@ describe("Companions", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("frozen (the game is open): it holds the sit pose in place, ignores the cursor and never chatters; unfrozen it wanders on", () => {
+    const t = setup();
+    for (let i = 0; i < 300 && t.cat() !== "walk"; i++) advance(10);
+    expect(t.cat()).toBe("walk");
+    t.update({ frozen: true });
+    for (let i = 0; i < 100 && t.cat() !== "sit"; i++) advance(10); // a hop in mid-air lands first
+    expect(t.cat()).toBe("sit");
+    const held = t.snapshot();
+    pointer(CAT_RECT.x - 10, CAT_RECT.y + 16); // right next to it
+    for (let i = 0; i < 300; i++) {
+      advance(100);
+      expect(t.snapshot()).toBe(held);
+      expect(t.bubble()).toBeNull();
+    }
+    pointer(CAT_RECT.x - 2000, CAT_RECT.y);
+    t.update({ frozen: false });
+    const after = new Set<string>();
+    for (let i = 0; i < 100; i++) {
+      advance(100);
+      after.add(t.snapshot());
+    }
+    expect(after.size).toBeGreaterThan(1);
+  });
+
   it("switching to reduceMotion mid-walk stops everything and snaps home", () => {
     const t = setup();
     advance(3000);
@@ -239,11 +273,7 @@ describe("Companions", () => {
 
   it("over five minutes it naps, yawns, looks, hops (crouching first) and keeps to the edges", () => {
     // a seeded rng and a narrow card, so the long walk is quick and repeatable
-    let seed = 7;
-    vi.spyOn(Math, "random").mockImplementation(() => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    });
+    seedRandom(7);
     vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
     const t = setup();
     const poses = new Set<string>();
@@ -257,11 +287,7 @@ describe("Companions", () => {
   }, 30_000);
 
   it("every hop step starts with a crouch", () => {
-    let seed = 7;
-    vi.spyOn(Math, "random").mockImplementation(() => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    });
+    seedRandom(7);
     vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
     const t = setup();
     for (let i = 0; i < 2000 && t.cat() !== "hop"; i++) advance(100);
@@ -280,6 +306,23 @@ describe("Companions", () => {
     expect(steps).toBeGreaterThanOrEqual(2);
   }, 30_000);
 
+  it("a game opened mid-hop lets the hop play out: the cat leaves the crouch in the air", () => {
+    seedRandom(7);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
+    const t = setup();
+    for (let i = 0; i < 2000 && t.cat() !== "hop"; i++) advance(100);
+    expect(t.cat()).toBe("hop");
+    t.update({ frozen: true });
+    const frames = new Set<string>();
+    for (let i = 0; i < 100 && t.cat() === "hop"; i++) {
+      frames.add(t.catSvg().getAttribute("data-frame")!);
+      advance(20);
+    }
+    expect([...frames].some((f) => f !== "0")).toBe(true);
+    for (let i = 0; i < 100 && t.cat() !== "sit"; i++) advance(20);
+    expect(t.cat()).toBe("sit"); // then it sits for the game
+  }, 30_000);
+
   it("skin swaps the cat's sprite", () => {
     const t = setup();
     const cat = t.catSvg().innerHTML;
@@ -288,6 +331,7 @@ describe("Companions", () => {
   });
 
   it("re-measures the card on resize: a cat far along the top track is pulled in to the new corner", () => {
+    seedRandom(7);
     const t = setup();
     const x = () => Number(/translate\((-?[\d.]+)px/.exec(t.catBox().style.transform)![1]);
     for (let i = 0; i < 600 && !(x() > 120 && t.cat() !== "walk" && t.cat() !== "hop"); i++) advance(100);
@@ -369,6 +413,23 @@ describe("Companions", () => {
       expect(t.cat()).not.toMatch(/^look-/);
       advance(30_000);
       expect(t.bubble()).toBeNull(); // no chatter once it has left
+    });
+
+    it("the game closing with the cursor still near: chatter starts again within the usual interval", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.5);
+      const t = setup();
+      advance(100);
+      pointer(CAT_RECT.x + CAT_RECT.w + 100, CAT_RECT.y + 16); // near
+      expect(t.cat()).toBe("look-r");
+      t.update({ frozen: true });
+      advance(1000);
+      t.update({ frozen: false });
+      let spoke = false;
+      for (let i = 0; i < 100 && !spoke; i++) {
+        advance(100); // up to 10 s, the longest chatter gap
+        spoke = t.bubble() !== null;
+      }
+      expect(spoke).toBe(true);
     });
 
     it("a pointerout into another element (relatedTarget set) is not leaving the window", () => {
@@ -545,11 +606,7 @@ describe("Companions", () => {
     });
 
     it("a hop in mid-air lands first, then the cat thinks", () => {
-      let seed = 7;
-      vi.spyOn(Math, "random").mockImplementation(() => {
-        seed = (seed * 16807) % 2147483647;
-        return seed / 2147483647;
-      });
+      seedRandom(7);
       vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(160);
       const t = setup();
       for (let i = 0; i < 2000 && t.cat() !== "hop"; i++) advance(100);
@@ -607,30 +664,89 @@ describe("Companions", () => {
     });
   });
 
-  describe("clicking the cat", () => {
-    it("first click: a hop and a '!' bubble; then purr, a slow blink and a stretch in turn", () => {
-      const onCatClick = vi.fn();
-      const t = setup({ onCatClick });
+  describe("clicking the cat: the menu", () => {
+    it("a click opens the menu (the cat looks up, no bubble) with the first item focused", () => {
+      const t = setup();
+      expect(t.menu()).toBeNull();
       fireEvent.click(t.button());
-      expect(onCatClick).toHaveBeenCalledTimes(1);
-      expect(t.cat()).toBe("hop-react");
-      expect(t.bubble()).toBe("!");
-      advance(1500);
+      expect(t.menu()).not.toBeNull();
+      expect(t.cat()).toBe("look-up");
       expect(t.bubble()).toBeNull();
-      fireEvent.click(t.button());
-      expect(t.cat()).toBe("purr");
-      advance(2000);
-      fireEvent.click(t.button());
-      expect(t.cat()).toBe("slow-blink");
-      advance(1500);
-      fireEvent.click(t.button());
-      expect(t.cat()).toBe("stretch");
-      advance(1500);
-      fireEvent.click(t.button());
-      expect(t.cat()).toBe("purr");
+      expect(t.item("play a game")).toHaveFocus();
+      // inside the [data-cat] subtree, so the terminal's focus/click guards ignore it
+      expect(t.menu()!.closest("[data-cat]")).not.toBeNull();
+      expect(t.button().closest("[data-cat]")).not.toBeNull();
     });
 
-    it("the click does not bubble to the card", () => {
+    it("pet closes the menu and purrs with a ♥", () => {
+      const t = setup();
+      fireEvent.click(t.button());
+      fireEvent.click(t.item("pet"));
+      expect(t.menu()).toBeNull();
+      expect(t.cat()).toBe("purr");
+      expect(t.bubble()).toBe("♥");
+      expect(t.button()).toHaveFocus();
+      advance(2000);
+      expect(t.cat()).not.toBe("purr");
+    });
+
+    it("nope closes the menu and slow-blinks", () => {
+      const t = setup();
+      fireEvent.click(t.button());
+      fireEvent.click(t.item("nope"));
+      expect(t.menu()).toBeNull();
+      expect(t.cat()).toBe("slow-blink");
+      advance(1500);
+      expect(t.cat()).not.toBe("slow-blink");
+    });
+
+    it("play a game closes the menu and calls onPlay", () => {
+      const onPlay = vi.fn();
+      const t = setup({ onPlay });
+      fireEvent.click(t.button());
+      fireEvent.click(t.item("play a game"));
+      expect(onPlay).toHaveBeenCalledTimes(1);
+      expect(t.menu()).toBeNull();
+    });
+
+    it("Escape closes the menu and focuses the cat", () => {
+      const t = setup();
+      fireEvent.click(t.button());
+      fireEvent.keyDown(t.item("play a game"), { key: "Escape" });
+      expect(t.menu()).toBeNull();
+      expect(t.button()).toHaveFocus();
+    });
+
+    it("clicking the cat again closes it; a pointerdown outside closes it too", () => {
+      const t = setup();
+      fireEvent.click(t.button());
+      fireEvent.pointerDown(t.button()); // the cat's own press is not "outside"
+      expect(t.menu()).not.toBeNull();
+      fireEvent.click(t.button());
+      expect(t.menu()).toBeNull();
+      fireEvent.click(t.button());
+      fireEvent.pointerDown(document.body);
+      expect(t.menu()).toBeNull();
+    });
+
+    it("while open the cat neither wanders nor chatters, and holds look-up; it wanders on after", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const t = setup();
+      fireEvent.click(t.button());
+      const held = t.catBox().style.transform;
+      pointer(CAT_RECT.x - 100, CAT_RECT.y); // near: chatter would start
+      advance(20_000);
+      expect(t.catBox().style.transform).toBe(held);
+      expect(t.bubble()).toBeNull();
+      expect(t.cat()).toBe("look-up");
+      pointer(CAT_RECT.x - 500, CAT_RECT.y); // far
+      fireEvent.keyDown(t.item("play a game"), { key: "Escape" });
+      expect(t.cat()).not.toBe("look-up");
+      advance(20_000);
+      expect(t.catBox().style.transform).not.toBe(held);
+    }, 30_000);
+
+    it("neither the cat's click nor the menu's reaches the card", () => {
       const outer = vi.fn();
       const t = render(
         <div onClick={outer}>
@@ -638,31 +754,81 @@ describe("Companions", () => {
         </div>,
       );
       fireEvent.click(t.getByRole("button", { name: "the cat" }));
+      fireEvent.click(t.getByRole("menuitem", { name: "nope" }));
       expect(outer).not.toHaveBeenCalled();
     });
 
-    it("Enter and Space on the focused cat react like a click", async () => {
+    it("Enter and Space on the focused cat open and close the menu", async () => {
       vi.useRealTimers();
       const user = userEvent.setup();
-      const onCatClick = vi.fn();
-      const t = setup({ onCatClick });
+      const t = setup();
       t.button().focus();
       await user.keyboard("{Enter}");
-      expect(onCatClick).toHaveBeenCalledTimes(1);
-      expect(t.cat()).toBe("hop-react");
-      expect(t.bubble()).toBe("!");
+      expect(t.menu()).not.toBeNull();
+      expect(t.item("play a game")).toHaveFocus();
+      await user.keyboard("{Escape}");
+      expect(t.button()).toHaveFocus();
       await user.keyboard(" ");
-      expect(onCatClick).toHaveBeenCalledTimes(2);
+      expect(t.menu()).not.toBeNull();
+      await user.keyboard("{ArrowDown}{Enter}"); // pet
+      expect(t.menu()).toBeNull();
       expect(t.cat()).toBe("purr");
     });
 
-    it("under reduceMotion the reaction and its bubble still show", () => {
+    describe("placement: on the card, clear of its ends and its top", () => {
+      const at = (t: ReturnType<typeof setup>) => {
+        const [, x, y] = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/.exec(t.catBox().style.transform)!.map(Number);
+        return { x, y };
+      };
+      const anchor = (t: ReturnType<typeof setup>) => t.menu()!.parentElement as HTMLElement;
+      /** Let the cat roam (deterministically) until it rests where `where` says, then open the menu. */
+      const openWhere = (where: (p: { x: number; y: number }) => boolean) => {
+        vi.spyOn(Math, "random").mockReturnValue(0);
+        const t = setup();
+        for (let i = 0; i < 3000 && !(where(at(t)) && t.cat() !== "walk" && t.cat() !== "hop"); i++) advance(100);
+        expect(where(at(t))).toBe(true);
+        fireEvent.click(t.button());
+        return t;
+      };
+
+      it("at the start of the top track: below the cat, lined up with its left", () => {
+        const t = setup();
+        fireEvent.click(t.button());
+        expect(at(t)).toEqual({ x: 16, y: -40 });
+        expect(anchor(t)).toHaveAttribute("data-menu-align", "left");
+        expect(anchor(t)).toHaveAttribute("data-menu-side", "bottom");
+        expect(anchor(t)).toHaveClass("top-full", "left-0");
+        expect(anchor(t)).not.toHaveClass("-translate-x-1/2");
+      });
+
+      it("along the top track: below the cat, centred", () => {
+        const t = openWhere(({ x, y }) => y < 0 && x >= 50 && x <= 576 - 50);
+        expect(anchor(t)).toHaveAttribute("data-menu-align", "center");
+        expect(anchor(t)).toHaveAttribute("data-menu-side", "bottom");
+        expect(anchor(t)).toHaveClass("top-full", "left-1/2", "-translate-x-1/2");
+      });
+
+      it("on the right edge: above the cat, lined up with its right", () => {
+        const t = openWhere(({ x, y }) => y >= 0 && x > 576 - 50);
+        expect(anchor(t)).toHaveAttribute("data-menu-align", "right");
+        expect(anchor(t)).toHaveAttribute("data-menu-side", "top");
+        expect(anchor(t)).toHaveClass("bottom-full", "right-0");
+      });
+
+      it("along the bottom edge: above the cat, centred", () => {
+        const t = openWhere(({ x, y }) => y > 100 && x >= 50 && x <= 576 - 50);
+        expect(anchor(t)).toHaveAttribute("data-menu-align", "center");
+        expect(anchor(t)).toHaveAttribute("data-menu-side", "top");
+        expect(anchor(t)).toHaveClass("bottom-full");
+      });
+    });
+
+    it("under reduceMotion the menu still opens and the cat looks up", () => {
       const t = setup({ reduceMotion: true });
       fireEvent.click(t.button());
-      expect(t.cat()).toBe("hop-react");
-      expect(t.bubble()).toBe("!");
-      advance(1500);
-      expect(t.bubble()).toBeNull();
+      expect(t.cat()).toBe("look-up");
+      fireEvent.click(t.item("nope"));
+      expect(t.cat()).toBe("slow-blink");
     });
   });
 });

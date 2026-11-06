@@ -1,16 +1,16 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, getDefaultNormalizer, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import Terminal from "./Terminal";
+import Terminal, { LOG_HEIGHT, LOG_HEIGHT_ACTIVE } from "./Terminal";
 import { IDLE_LINES } from "./commands";
 
 // Report prefers-reduced-motion so output appears instantly (no typewriter waits).
-beforeAll(() => {
+function stubMatchMedia(matches: (query: string) => boolean = (q) => q.includes("prefers-reduced-motion")) {
   vi.stubGlobal(
     "matchMedia",
     (query: string) =>
       ({
-        matches: query.includes("prefers-reduced-motion"),
+        matches: matches(query),
         media: query,
         onchange: null,
         addListener: () => {},
@@ -20,6 +20,9 @@ beforeAll(() => {
         dispatchEvent: () => false,
       }) as MediaQueryList,
   );
+}
+beforeAll(() => {
+  stubMatchMedia();
 });
 afterAll(() => {
   vi.unstubAllGlobals();
@@ -50,15 +53,18 @@ describe("Terminal", () => {
     expect(t.container.querySelector('svg[data-sprite="cat"]')).not.toBeNull();
   });
 
-  it("clicking (or pressing Enter on) the cat reacts without activating the terminal", async () => {
+  it("clicking (or pressing Enter on) the cat opens its menu without activating the terminal", async () => {
     const t = setup();
     const cat = screen.getByRole("button", { name: "the cat" });
     await t.user.click(cat);
     expect(screen.queryByRole("textbox")).toBeNull();
-    expect(t.container.querySelector("[data-bubble]")).toHaveTextContent("!");
+    expect(screen.getByRole("menu", { name: "cat menu" })).toBeInTheDocument();
     expect(t.card()).toHaveAttribute("tabindex", "0");
     cat.focus();
-    await t.user.keyboard("{Enter}");
+    await t.user.keyboard("{Enter}"); // closes it
+    expect(screen.queryByRole("menu")).toBeNull();
+    await t.user.keyboard("{Enter}"); // opens it again
+    expect(screen.getByRole("menu")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
@@ -67,18 +73,81 @@ describe("Terminal", () => {
     const cat = screen.getByRole("button", { name: "the cat" });
     expect(fireEvent.pointerDown(cat)).toBe(false); // default prevented
     expect(fireEvent.mouseDown(cat)).toBe(false);
-    fireEvent.click(cat);
     expect(screen.queryByRole("textbox")).toBeNull();
     await t.user.click(cat); // user-event moves focus on mousedown unless it is prevented
-    expect(cat).not.toHaveFocus();
+    expect(cat).not.toHaveFocus(); // the menu it opened took focus instead
+    expect(screen.getByRole("menuitem", { name: "play a game" })).toHaveFocus();
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
-  it("clicking the cat while the terminal is active keeps the input focused", async () => {
+  it("clicking the cat while the terminal is active opens the menu and keeps the terminal active", async () => {
+    const t = setup();
+    await t.activate();
+    await t.user.click(screen.getByRole("button", { name: "the cat" }));
+    expect(screen.getByRole("menuitem", { name: "play a game" })).toHaveFocus();
+    expect(t.card()).toHaveAttribute("data-active", "true");
+  });
+
+  it("Escape in the menu does not deactivate the terminal", async () => {
+    const t = setup();
+    await t.activate();
+    await t.user.click(screen.getByRole("button", { name: "the cat" }));
+    expect(screen.getByRole("menu", { name: "cat menu" })).toBeInTheDocument();
+    await t.user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(t.card()).toHaveAttribute("data-active", "true");
+    expect(screen.getByRole("button", { name: "the cat" })).toHaveFocus();
+  });
+
+  it("choosing pet (or nope) hands focus back to the input, and the terminal stays active", async () => {
     const t = setup();
     const input = await t.activate();
     await t.user.click(screen.getByRole("button", { name: "the cat" }));
+    await t.user.click(screen.getByRole("menuitem", { name: "pet" }));
+    expect(screen.queryByRole("menu")).toBeNull();
     expect(input).toHaveFocus();
+    expect(t.card()).toHaveAttribute("data-active", "true");
+    await t.user.click(screen.getByRole("button", { name: "the cat" }));
+    await t.user.keyboard("{ArrowUp}{Enter}"); // nope
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(input).toHaveFocus();
+  });
+
+  it("Tab closes the menu and moves on past the cat; Shift+Tab lands before it, the terminal still active", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <Terminal />
+        <button type="button">after the hero</button>
+      </>,
+    );
+    const card = screen.getByLabelText("Interactive terminal. Click or press Enter to type commands.");
+    const cat = screen.getByRole("button", { name: "the cat" });
+    await user.click(card);
+    await user.click(cat);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    await user.tab();
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByRole("button", { name: "after the hero" })).toHaveFocus();
+
+    await user.click(card);
+    await user.click(cat);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    await user.tab({ shift: true });
+    expect(screen.queryByRole("menu")).toBeNull();
+    const before = document.activeElement as HTMLElement;
+    expect(before === screen.getByRole("textbox", { name: "terminal input" }) || before.closest("p")?.textContent?.startsWith("try:")).toBe(true);
+    expect(card).toHaveAttribute("data-active", "true");
+  });
+
+  it("menu use never activates the terminal", async () => {
+    const t = setup();
+    expect(t.card()).toHaveAttribute("data-active", "false");
+    await t.user.click(screen.getByRole("button", { name: "the cat" }));
+    await t.user.click(screen.getByRole("menuitem", { name: "nope" }));
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(t.card()).toHaveAttribute("data-active", "false");
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("the cat comes after the input (and hint links) in tab order; tabbing to it keeps the terminal active", async () => {
@@ -198,7 +267,7 @@ describe("Terminal", () => {
     expect(t.card()).toHaveAttribute("role", "group");
     const input = await t.activate();
     expect(input).toHaveAccessibleDescription(
-      "Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves.",
+      "Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves. The card grows while you type.",
     );
     expect(input).toHaveClass("text-base", "sm:text-sm");
   });
@@ -314,5 +383,204 @@ describe("Terminal", () => {
       "shadow-2xl",
       "shadow-black/40",
     );
+  });
+
+  it("grows while active and shrinks on Escape", async () => {
+    const t = setup();
+    const log = screen.getByTestId("terminal-log");
+    expect(log).toBe(t.log());
+    expect(log.className).toContain(LOG_HEIGHT);
+    expect(log.className).not.toContain(LOG_HEIGHT_ACTIVE);
+    expect(t.card()).toHaveAttribute("data-active", "false");
+    await t.activate();
+    expect(log.className).toContain(LOG_HEIGHT_ACTIVE);
+    expect(log.className).not.toContain(LOG_HEIGHT);
+    expect(t.card()).toHaveAttribute("data-active", "true");
+    await t.user.keyboard("{Escape}");
+    expect(log.className).toContain(LOG_HEIGHT);
+    expect(log.className).not.toContain(LOG_HEIGHT_ACTIVE);
+    expect(t.card()).toHaveAttribute("data-active", "false");
+  });
+
+  it("toggling quickly ends inactive", async () => {
+    const t = setup();
+    await t.activate();
+    await t.user.keyboard("{Escape}");
+    await t.activate();
+    await t.user.keyboard("{Escape}");
+    const log = screen.getByTestId("terminal-log");
+    expect(log.className).toContain(LOG_HEIGHT);
+    expect(log.className).not.toContain(LOG_HEIGHT_ACTIVE);
+    expect(log.style.height).toBe("");
+    expect(t.card()).toHaveAttribute("data-active", "false");
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  // `!`: the unlayered `*` colour-transition rule in index.css otherwise beats these utilities.
+  // Class check only: jsdom cannot see the cascade; the computed transition is checked in Playwright (docs/superpowers/reports/2026-11-06-terminal-play-verification.md, fix 1).
+  it("has a height transition that reduced motion removes", () => {
+    setup();
+    expect(screen.getByTestId("terminal-log")).toHaveClass(
+      "transition-[height]!",
+      "duration-[260ms]",
+      "ease-out",
+      "motion-reduce:transition-none!",
+    );
+  });
+
+  it("scrolls the log to the bottom when the height transition ends", async () => {
+    const t = setup();
+    await t.activate();
+    const log = screen.getByTestId("terminal-log");
+    Object.defineProperty(log, "scrollHeight", { configurable: true, value: 500 });
+    log.scrollTop = 0;
+    fireEvent.transitionEnd(log, { propertyName: "opacity" });
+    expect(log.scrollTop).toBe(0);
+    fireEvent.transitionEnd(log, { propertyName: "height" });
+    expect(log.scrollTop).toBe(500);
+  });
+
+  it("the screen-reader description says the card grows", () => {
+    setup();
+    expect(screen.getByText(/The card grows while you type\.$/)).toHaveClass("sr-only");
+  });
+
+  it("shows a blinking block cursor only while inactive", async () => {
+    const t = setup();
+    const c = screen.getByTestId("idle-cursor");
+    expect(c).toHaveAttribute("aria-hidden", "true");
+    expect(c).toHaveTextContent("▍");
+    expect(c.className).toContain("animate-[blink_1s_steps(1)_infinite]");
+    expect(c.className).toContain("motion-reduce:animate-none");
+    expect(c).toHaveClass("text-accent");
+    await t.user.click(screen.getByRole("group"));
+    expect(screen.queryByTestId("idle-cursor")).toBeNull();
+    // Inactive again with output: the cursor follows the pending text.
+    await t.user.keyboard("skills{Enter}pro{Escape}");
+    expect(screen.getByTestId("idle-cursor").previousSibling).toHaveTextContent("pro");
+  });
+
+  it("the idle cursor adds no line to the idle log", () => {
+    const t = setup();
+    const c = screen.getByTestId("idle-cursor");
+    const last = IDLE_LINES[IDLE_LINES.length - 1];
+    expect(c.closest("p")).toBe(within(t.log()).getByText(last.text).closest("p"));
+    expect(t.log().querySelectorAll("p")).toHaveLength(IDLE_LINES.length);
+  });
+
+  it("shows 'click to type' until the first activation and never again", async () => {
+    const t = setup();
+    const hint = screen.getByTestId("type-hint");
+    expect(hint).toHaveTextContent("click to type");
+    expect(hint).toHaveClass("ml-auto", "font-mono", "text-xs", "text-ink-faint");
+    expect(hint.parentElement).toBe(screen.getByText("ahnaf@portfolio: ~").parentElement);
+    await t.activate();
+    expect(screen.queryByTestId("type-hint")).toBeNull();
+    await t.user.keyboard("{Escape}");
+    expect(t.card()).toHaveAttribute("data-active", "false");
+    expect(screen.queryByTestId("type-hint")).toBeNull();
+  });
+
+  it("keeps the title bar on one line and hides the label below the fit width", () => {
+    setup();
+    const hint = screen.getByTestId("type-hint");
+    expect(hint).toHaveClass("whitespace-nowrap");
+    expect(hint).toHaveClass("hidden");
+    expect(hint).toHaveClass("min-[23rem]:inline");
+    expect(hint).not.toHaveClass("transition-opacity");
+    expect(screen.getByText("ahnaf@portfolio: ~")).toHaveClass("whitespace-nowrap");
+  });
+
+  it("says 'tap to type' on hover-none devices", () => {
+    stubMatchMedia((q) => q.includes("prefers-reduced-motion") || q === "(hover: none)");
+    try {
+      setup();
+      expect(screen.getByTestId("type-hint")).toHaveTextContent("tap to type");
+    } finally {
+      stubMatchMedia();
+    }
+  });
+
+  it("renders without matchMedia", () => {
+    vi.stubGlobal("matchMedia", undefined);
+    try {
+      setup();
+      expect(screen.getByTestId("type-hint")).toHaveTextContent("click to type");
+    } finally {
+      stubMatchMedia();
+    }
+  });
+
+  it("card has the hover affordance while inactive and a steady accent border while active", async () => {
+    const t = setup();
+    const card = screen.getByTestId("terminal-card");
+    expect(card).toHaveClass("rounded-xl", "transition-colors", "border-line", "hover:border-accent/60", "cursor-text");
+    await t.activate();
+    expect(card).toHaveClass("border-accent/60", "transition-colors");
+    expect(card).not.toHaveClass("border-line");
+    expect(card).not.toHaveClass("cursor-text");
+    expect(card).not.toHaveClass("hover:border-accent/60");
+    expect(screen.getByRole("button", { name: "the cat" })).toHaveClass("cursor-pointer");
+  });
+
+  describe("cat dash", () => {
+    // jsdom has no canvas: a null context leaves the game running undrawn
+    beforeEach(() => {
+      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+      document.body.style.overflow = "";
+    });
+
+    it("play command keeps the terminal active across the game", async () => {
+      const t = setup();
+      const input = await t.activate();
+      await t.user.type(input, "play{Enter}");
+      const dialog = await screen.findByRole("dialog", { name: "cat dash" });
+      expect(screen.getByTestId("game")).toHaveFocus();
+      expect(t.card()).toHaveAttribute("data-active", "true");
+      expect(document.body.style.overflow).toBe("hidden");
+      await t.user.keyboard("{Escape}");
+      expect(dialog).not.toBeInTheDocument();
+      expect(t.card()).toHaveAttribute("data-active", "true");
+      expect(t.input()).toHaveFocus();
+      expect(document.body.style.overflow).toBe("");
+      // deactivation works again once the game is closed
+      const outside = document.createElement("button");
+      outside.textContent = "outside";
+      document.body.append(outside);
+      try {
+        await t.user.click(outside);
+        expect(t.card()).toHaveAttribute("data-active", "false");
+      } finally {
+        outside.remove();
+      }
+    });
+
+    it("opening from the cat menu leaves the terminal inactive", async () => {
+      const t = setup();
+      await t.user.click(screen.getByRole("button", { name: "the cat" }));
+      await t.user.click(screen.getByRole("menuitem", { name: "play a game" }));
+      expect(screen.getByRole("dialog", { name: "cat dash" })).toBeInTheDocument();
+      expect(screen.getByTestId("game")).toHaveFocus();
+      expect(t.card()).toHaveAttribute("data-active", "false");
+      await t.user.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.getByRole("button", { name: "the cat" })).toHaveFocus();
+      expect(t.card()).toHaveAttribute("data-active", "false");
+      expect(screen.queryByRole("textbox")).toBeNull();
+    });
+
+    it("the close button closes it too, and the game is outside the terminal card", async () => {
+      const t = setup();
+      await t.user.click(screen.getByRole("button", { name: "the cat" }));
+      await t.user.click(screen.getByRole("menuitem", { name: "play a game" }));
+      const dialog = screen.getByRole("dialog", { name: "cat dash" });
+      expect(t.card().contains(dialog)).toBe(false);
+      await t.user.click(screen.getByRole("button", { name: "close game" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(t.card()).toHaveAttribute("data-active", "false");
+    });
   });
 });

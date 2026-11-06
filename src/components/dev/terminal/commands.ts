@@ -24,7 +24,8 @@ export type Effect =
   | { type: "shades" } // session-only
   | { type: "pet" }
   | { type: "open"; href: string }
-  | { type: "ask"; question: string };
+  | { type: "ask"; question: string }
+  | { type: "play" };
 
 export const SKINS: readonly SkinName[] = ["default", "hacker", "artist", "shades"];
 
@@ -62,12 +63,17 @@ const timeline = (entries: readonly TimelineEntry[], section: string): CommandRe
 const skinList = (current: SkinName): Line[] =>
   SKINS.map((s) => text(s === current ? `* ${s}` : `  ${s}`));
 
+const play: Command = {
+  describe: "a game with the cat",
+  run: () => out([text("the cat stretches…")], [{ type: "play" }]),
+};
+
 const email = socials.find((s) => s.href.startsWith("mailto:"))!.href;
 
 const REGISTRY: Record<string, Command> = {
   help: {
     describe: "list commands",
-    run: () => out(COMMAND_NAMES.map((n) => text(`${n.padEnd(12)}${REGISTRY[n].describe}`))),
+    run: () => out(VISIBLE.map((n) => text(`${n.padEnd(12)}${REGISTRY[n].describe}`))),
   },
   whoami: { describe: "who is this", run: () => out([IDLE_LINES[1]]) },
   experience: { describe: "where i've worked", run: () => timeline(experience, "experience") },
@@ -119,6 +125,8 @@ const REGISTRY: Record<string, Command> = {
     },
   },
   pet: { describe: "pet the cat", run: () => out([text("purrrr")], [{ type: "pet" }]) },
+  play,
+  game: play,
   clear: { describe: "clear the screen", run: () => out([], [{ type: "clear" }]) },
   ls: { describe: "list files", run: () => out([text("experience/  projects/  skills.txt  resume.pdf  cat.jpg")]) },
   sudo: {
@@ -129,6 +137,10 @@ const REGISTRY: Record<string, Command> = {
 };
 
 export const COMMAND_NAMES: readonly string[] = Object.keys(REGISTRY);
+
+/** Aliases that run but stay out of `help` and tab completion. */
+const HIDDEN: ReadonlySet<string> = new Set(["game"]);
+const VISIBLE: readonly string[] = COMMAND_NAMES.filter((n) => !HIDDEN.has(n));
 
 function levenshtein(a: string, b: string): number {
   let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -142,12 +154,12 @@ function levenshtein(a: string, b: string): number {
   return prev[b.length];
 }
 
-/** Closest command name within Levenshtein distance 2, or null. */
+/** Closest visible command name within Levenshtein distance 2, or null (hidden aliases are never suggested). */
 export function suggest(word: string): string | null {
   const w = word.toLowerCase();
   let best: string | null = null;
   let bestDist = 3;
-  for (const name of COMMAND_NAMES) {
+  for (const name of VISIBLE) {
     if (Math.abs(name.length - w.length) >= bestDist) continue;
     const d = levenshtein(w, name);
     if (d < bestDist) [best, bestDist] = [name, d];
@@ -158,7 +170,7 @@ export function suggest(word: string): string | null {
 /** Command names starting with `prefix`, in registry order. */
 export function complete(prefix: string): string[] {
   const p = prefix.toLowerCase();
-  return COMMAND_NAMES.filter((n) => n.startsWith(p));
+  return VISIBLE.filter((n) => n.startsWith(p));
 }
 
 export function runCommand(input: string, ctx: Ctx): CommandResult {

@@ -13,11 +13,30 @@ import {
 const ctx = { skin: "default" as const };
 
 describe("runCommand", () => {
-  it("help lists every command once", () => {
+  it("help lists every visible command once", () => {
     const r = runCommand("help", ctx);
-    for (const n of COMMAND_NAMES) expect(r.lines.some((l) => l.text.startsWith(n))).toBe(true);
-    expect(r.lines).toHaveLength(COMMAND_NAMES.length);
+    const visible = COMMAND_NAMES.filter((n) => n !== "game");
+    for (const n of visible) expect(r.lines.some((l) => l.text.startsWith(n))).toBe(true);
+    expect(r.lines).toHaveLength(visible.length);
     expect(r.ok).toBe(true);
+  });
+  it("play prints the stretch line and emits a play effect", () => {
+    expect(runCommand("play", ctx)).toEqual({
+      lines: [{ kind: "text", text: "the cat stretches…" }],
+      effects: [{ type: "play" }],
+      ok: true,
+    });
+  });
+  it("game is an alias for play", () => {
+    expect(runCommand("game", ctx)).toEqual(runCommand("play", ctx));
+  });
+  it("the game alias is hidden from help and completion", () => {
+    expect(runCommand("help", ctx).lines.some((l) => l.text.startsWith("game"))).toBe(false);
+    expect(complete("ga")).toEqual([]);
+  });
+  it("help lists play as a game with the cat", () => {
+    const line = runCommand("help", ctx).lines.find((l) => l.text.startsWith("play"));
+    expect(line?.text.slice(4).trim()).toBe("a game with the cat");
   });
   it("is case-insensitive and trims", () => {
     expect(runCommand("  WHOAMI ", ctx).lines[0]).toEqual(IDLE_LINES[1]);
@@ -146,5 +165,10 @@ describe("suggest/complete", () => {
     expect(suggest("qqqqqqq")).toBeNull();
     expect(complete("ex")).toEqual(["experience"]);
     expect(complete("s")).toEqual(["skills", "socials", "skin", "sudo"]);
+  });
+
+  it("never suggests the hidden alias", () => {
+    expect(suggest("gam")).not.toBe("game");
+    expect(suggest("gmae")).not.toBe("game");
   });
 });

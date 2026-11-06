@@ -19,7 +19,6 @@ const CAT_POSES: CatPose[] = [
   "look-r",
   "look-up",
   "paw",
-  "hop-react",
   "slow-blink",
   "think",
   "happy",
@@ -155,7 +154,7 @@ describe("sprites", () => {
     }
   });
 
-  it("look-l is look-r mirrored; look-up raises the eyes; paw is a 300 ms one-shot swipe; hop-react leaves the ground", () => {
+  it("look-l is look-r mirrored; look-up raises the eyes; paw is a 300 ms one-shot swipe", () => {
     for (const skin of SKINS) {
       const c = CAT[skin];
       c["look-r"].frames.forEach((f, i) => expect(c["look-l"].frames[i], `${skin} #${i}`).toEqual(f.map((r) => [...r].reverse().join(""))));
@@ -166,9 +165,6 @@ describe("sprites", () => {
     // the swiping paw reaches further forward (right) than the sitting cat does
     const right = (f: string[]) => Math.max(...f.map((r) => r.replace(/[.b]+$/, "").length - 1));
     expect(right(c.paw.frames[1])).toBeGreaterThan(right(c.sit.frames[0]));
-    expect(c["hop-react"].loop).toBe(false);
-    const top = (f: string[]) => f.findIndex((r) => /[^.]/.test(r));
-    expect(Math.min(...c["hop-react"].frames.map(top))).toBeLessThan(top(c.sit.frames[0]));
     expect(c["slow-blink"].loop).toBe(false);
     expect(c["slow-blink"].frames.length).toBeGreaterThanOrEqual(3);
   });

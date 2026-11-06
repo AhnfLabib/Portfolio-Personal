@@ -40,9 +40,14 @@ The terminal card in the Dev hero is interactive: click it (or Tab to it) and ty
 - `ask <question>` — ask Ahnaf a question (answered by Gemini)
 - `skin [name]` — change the companions' look (`default`, `hacker`, `artist`, `shades`)
 - `pet` — pet the cat
+- `play` — play Cat Dash (the terminal stays active; Esc returns to the input)
 - `clear` — clear the screen
 - `ls` — list files
 - `sudo` — try it
+
+Click the cat (or Tab to it and press Enter) for a small menu: `play a game`, `pet`, `nope`; arrow keys move through it and Esc closes it without leaving the terminal.
+
+Cat Dash is a one-button runner in a dialog: Space, ↑ or a tap jumps over obstacles, Esc closes, and the best score is kept in `localStorage` under `portfolio-cat-best` (the game still plays when storage is unavailable).
 
 `ask` is served by the Vercel function in `api/ask.ts`, which calls Google Gemini. The model is the `MODEL` constant at the top of that file. Setup:
 
