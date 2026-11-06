@@ -5,12 +5,12 @@ import Terminal, { LOG_HEIGHT, LOG_HEIGHT_ACTIVE } from "./Terminal";
 import { IDLE_LINES } from "./commands";
 
 // Report prefers-reduced-motion so output appears instantly (no typewriter waits).
-beforeAll(() => {
+function stubMatchMedia(matches: (query: string) => boolean = (q) => q.includes("prefers-reduced-motion")) {
   vi.stubGlobal(
     "matchMedia",
     (query: string) =>
       ({
-        matches: query.includes("prefers-reduced-motion"),
+        matches: matches(query),
         media: query,
         onchange: null,
         addListener: () => {},
@@ -20,6 +20,9 @@ beforeAll(() => {
         dispatchEvent: () => false,
       }) as MediaQueryList,
   );
+}
+beforeAll(() => {
+  stubMatchMedia();
 });
 afterAll(() => {
   vi.unstubAllGlobals();
@@ -372,5 +375,71 @@ describe("Terminal", () => {
   it("the screen-reader description says the card grows", () => {
     setup();
     expect(screen.getByText(/The card grows while you type\.$/)).toHaveClass("sr-only");
+  });
+
+  it("shows a blinking block cursor only while inactive", async () => {
+    const t = setup();
+    const c = screen.getByTestId("idle-cursor");
+    expect(c).toHaveAttribute("aria-hidden", "true");
+    expect(c).toHaveTextContent("▍");
+    expect(c.className).toContain("animate-[blink_1s_steps(1)_infinite]");
+    expect(c.className).toContain("motion-reduce:animate-none");
+    expect(c).toHaveClass("text-accent");
+    await t.user.click(screen.getByRole("group"));
+    expect(screen.queryByTestId("idle-cursor")).toBeNull();
+    // Inactive again with output: the cursor follows the pending text.
+    await t.user.keyboard("skills{Enter}pro{Escape}");
+    expect(screen.getByTestId("idle-cursor").previousSibling).toHaveTextContent("pro");
+  });
+
+  it("the idle cursor adds no line to the idle log", () => {
+    const t = setup();
+    const c = screen.getByTestId("idle-cursor");
+    const last = IDLE_LINES[IDLE_LINES.length - 1];
+    expect(c.closest("p")).toBe(within(t.log()).getByText(last.text).closest("p"));
+    expect(t.log().querySelectorAll("p")).toHaveLength(IDLE_LINES.length);
+  });
+
+  it("shows 'click to type' until the first activation and never again", async () => {
+    const t = setup();
+    const hint = screen.getByTestId("type-hint");
+    expect(hint).toHaveTextContent("click to type");
+    expect(hint).toHaveClass("ml-auto", "font-mono", "text-xs", "text-ink-faint");
+    expect(hint.parentElement).toBe(screen.getByText("ahnaf@portfolio: ~").parentElement);
+    await t.activate();
+    expect(screen.queryByTestId("type-hint")).toBeNull();
+    await t.user.keyboard("{Escape}");
+    expect(t.card()).toHaveAttribute("data-active", "false");
+    expect(screen.queryByTestId("type-hint")).toBeNull();
+  });
+
+  it("says 'tap to type' on hover-none devices", () => {
+    stubMatchMedia((q) => q.includes("prefers-reduced-motion") || q === "(hover: none)");
+    try {
+      setup();
+      expect(screen.getByTestId("type-hint")).toHaveTextContent("tap to type");
+    } finally {
+      stubMatchMedia();
+    }
+  });
+
+  it("renders without matchMedia", () => {
+    vi.stubGlobal("matchMedia", undefined);
+    try {
+      setup();
+      expect(screen.getByTestId("type-hint")).toHaveTextContent("click to type");
+    } finally {
+      stubMatchMedia();
+    }
+  });
+
+  it("card has the hover affordance while inactive and a steady accent border while active", async () => {
+    const t = setup();
+    const card = screen.getByTestId("terminal-card");
+    expect(card).toHaveClass("rounded-xl", "transition-colors", "border-line", "hover:border-accent/60", "cursor-text");
+    await t.activate();
+    expect(card).toHaveClass("border-accent/60", "transition-colors");
+    expect(card).not.toHaveClass("border-line", "cursor-text");
+    expect(screen.getByRole("button", { name: "the cat" })).toHaveClass("cursor-pointer");
   });
 });

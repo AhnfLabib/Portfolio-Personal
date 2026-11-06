@@ -88,3 +88,14 @@ body {
     border-radius: 1rem;
   }
 }
+
+/* Terminal idle cursor (animate-[blink_1s_steps(1)_infinite]); solid under reduced motion. */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}

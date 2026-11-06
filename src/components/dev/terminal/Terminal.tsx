@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { HINT_LINE, IDLE_LINES, type Line } from "./commands";
 import { Companions } from "./Companion";
@@ -16,6 +16,16 @@ const LINK_CLASS = "text-accent underline-offset-4 hover:underline";
 export const LOG_HEIGHT = "h-[9.25rem] min-[24.875rem]:h-[8.25rem] min-[29.8125rem]:h-[7.25rem] sm:h-[8.25rem]";
 // While active the log grows; below sm it is capped so the input stays above the phone keyboard.
 export const LOG_HEIGHT_ACTIVE = "h-[min(22rem,60svh)] sm:h-[22rem]";
+/** Inactive only: a blinking block after the pending prompt (solid under reduced motion). */
+const IdleCursor = () => (
+  <span
+    data-testid="idle-cursor"
+    aria-hidden="true"
+    className="text-accent animate-[blink_1s_steps(1)_infinite] motion-reduce:animate-none"
+  >
+    ▍
+  </span>
+);
 const HINT_WORDS = HINT_LINE.text.replace(/^try:\s*/, "").split(" · ");
 
 /** Each prompt starts a group; output lines sit 4px under it, groups 12px apart. */
@@ -29,8 +39,22 @@ function groupLines(lines: Line[]): { start: number; lines: Line[] }[] {
   return groups;
 }
 
-function LineView({ line, first }: { line: Line; first: boolean }) {
+function LineView({ line, first, cursor }: { line: Line; first: boolean; cursor?: boolean }) {
   const gap = first ? undefined : "mt-1";
+  if (cursor && line.kind !== "link") {
+    // The idle view has no spare row, so the cursor ends the last line. It is
+    // zero-width so it can never re-wrap that line (the log heights are pinned to its wraps).
+    return (
+      <p className={gap ? `${gap} ${KIND_CLASS[line.kind]}` : KIND_CLASS[line.kind]}>
+        <span>{line.text}</span>
+        <span className="inline-block w-0 whitespace-nowrap">
+          <span className="ml-[0.5ch]">
+            <IdleCursor />
+          </span>
+        </span>
+      </p>
+    );
+  }
   if (line.kind === "link") {
     return (
       <p className={gap}>
@@ -82,6 +106,13 @@ export default function Terminal() {
   const showPrompt = state.active || !idle;
   const focusInput = () => inputRef.current?.focus();
   const hintId = useId();
+  // The title-bar label shows until the first activation, then never again this mount.
+  const [everActive, setEverActive] = useState(false);
+  if (state.active && !everActive) setEverActive(true);
+  const hoverNone = useMemo(
+    () => typeof window.matchMedia === "function" && window.matchMedia("(hover: none)").matches,
+    [],
+  );
 
   // The input mounts on activation, so focus it once it exists.
   useEffect(() => {
@@ -151,12 +182,25 @@ export default function Terminal() {
       <p id={hintId} className="sr-only">
         Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves. The card grows while you type.
       </p>
-      <div className="overflow-hidden rounded-xl border border-line bg-surface text-left shadow-2xl shadow-black/40">
+      <div
+        data-testid="terminal-card"
+        className={`overflow-hidden rounded-xl border bg-surface text-left shadow-2xl shadow-black/40 transition-colors ${
+          state.active ? "border-accent/60" : "border-line hover:border-accent/60 cursor-text"
+        }`}
+      >
         <div className="flex items-center gap-2 border-b border-line bg-surface-2 px-4 py-3">
           <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
           <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
           <span className="h-3 w-3 rounded-full bg-ink-faint/60" aria-hidden="true" />
           <span className="ml-2 font-mono text-xs text-ink-faint">ahnaf@portfolio: ~</span>
+          {!state.active && !everActive && (
+            <span
+              data-testid="type-hint"
+              className="ml-auto font-mono text-xs text-ink-faint transition-opacity duration-200 motion-reduce:transition-none"
+            >
+              {hoverNone ? "tap to type" : "click to type"}
+            </span>
+          )}
         </div>
         <div
           ref={logRef}
@@ -166,7 +210,7 @@ export default function Terminal() {
           onClick={state.busy ? api.finishTyping : undefined}
           className={`${state.active ? LOG_HEIGHT_ACTIVE : LOG_HEIGHT} transition-[height] duration-[260ms] ease-out motion-reduce:transition-none space-y-3 overflow-y-auto p-4 font-mono text-xs whitespace-pre-wrap [overflow-wrap:anywhere] sm:text-sm`}
         >
-          {groupLines(state.lines).map((group, gi) => (
+          {groupLines(state.lines).map((group, gi, groups) => (
             <motion.div
               key={group.start}
               initial={idle ? { opacity: 0, x: -8 } : false}
@@ -174,7 +218,12 @@ export default function Terminal() {
               transition={{ duration: 0.4, delay: 0.5 + gi * 0.35 }}
             >
               {group.lines.map((line, i) => (
-                <LineView key={group.start + i} line={line} first={i === 0} />
+                <LineView
+                  key={group.start + i}
+                  line={line}
+                  first={i === 0}
+                  cursor={!showPrompt && gi === groups.length - 1 && i === group.lines.length - 1}
+                />
               ))}
             </motion.div>
           ))}
@@ -198,9 +247,12 @@ export default function Terminal() {
                     className="min-w-0 flex-1 bg-transparent text-base text-ink caret-accent outline-none sm:text-sm"
                   />
                 ) : (
-                  // Inactive with output: only the pending text; the cursor (the
-                  // input's accent caret) shows only while active.
-                  <span className="text-ink">{state.input}</span>
+                  // Inactive with output: the pending text and the idle block cursor;
+                  // while active the input's own accent caret takes over.
+                  <>
+                    <span className="text-ink">{state.input}</span>
+                    <IdleCursor />
+                  </>
                 )}
               </p>
               {state.active && state.showHint && <HintLine api={api} focusInput={focusInput} />}
