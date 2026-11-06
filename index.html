@@ -25,10 +25,25 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Same srcset/sizes as the hero's large frame, so the preload fetches the file the img picks. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400..800&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      as="image"
+      href="/gallery/r4-02.jpg"
+      imagesrcset="/gallery/r4-02-800.jpg 800w, /gallery/r4-02-1200.jpg 1200w, /gallery/r4-02.jpg 1600w"
+      imagesizes="(min-width: 1024px) 83vw, 165vw"
+      fetchpriority="high"
     />
+    <!-- Fonts load without blocking first paint; display=swap shows fallbacks meanwhile. -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400..800&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400..800&display=swap" />
+    </noscript>
   </head>
   <body>
     <div id="root"></div>

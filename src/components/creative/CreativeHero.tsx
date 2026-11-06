@@ -1,90 +1,106 @@
-import { motion, useReducedMotion } from "framer-motion";
-import type { Variants } from "framer-motion";
-import { creativeHero } from "../../data/content";
-import SegmentedText from "./SegmentedText";
-import Marquee from "./Marquee";
-import CreativeBackground from "./CreativeBackground";
+import type { CSSProperties } from "react";
+import { creative } from "../../data/content";
+import { frameSrcSet } from "./frameSrc";
 
-const container: Variants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.14, delayChildren: 0.08 } },
-};
+/**
+ * Wall slots, in content order (creative.hero.wall):
+ *   0 large frame   — left half, under the name strip
+ *   1 tall portrait — middle column, full height
+ *   2, 3 landscapes — right column, stacked
+ *   4 small portrait — right column, bottom
+ * Below lg (phones and portrait tablets): the large frame spans both columns,
+ * the other four sit 2×2.
+ * `sizes` describes the width the browser must fetch for object-cover. A 16:9
+ * photo in a cell taller than 16:9 is fitted by height, so the fetch width
+ * follows cell height × 1.78, not cell width.
+ * Slot 0 (the LCP frame, r4-02, 16:9) has 800/1200/1600w files: at lg+ its
+ * ~570 × 681 px cell at 1440 needs 681 × 1.78 ≈ 1212 px (83vw ≈ 1195, a 1% upscale of the 1200w file; 84vw would tip 1x desktops to 1600w); below lg
+ * the square phone cell is ~358 px tall at 390 (viewport − 32 px gutters), so
+ * it needs 358 × 1.78 ≈ 637 px (165vw ≈ 644 at 390). DPR1/1.5 devices land on
+ * the 1200w file instead of upscaling the 800w one. The <link rel="preload">
+ * in index.html carries the same srcset/sizes.
+ * Slots 2 and 3 hold 16:9 photos in portrait-shaped cells: below lg a ~50vw ×
+ * 66.7vw cell needs ~118vw (120vw, so a DPR2 phone picks the 1600w file); at
+ * lg+ a ~240px-tall cell needs ~425px (30vw ≈ 432 at 1440).
+ * `focus` keeps each photo's subject in the crop.
+ * `lazy` marks the two frames below the phone fold.
+ */
+const SLOTS: { cell: string; sizes: string; focus: string; lazy?: boolean }[] = [
+  { cell: "aspect-square sm:aspect-[4/3] lg:aspect-auto lg:min-h-0 lg:flex-1", sizes: "(min-width: 1024px) 83vw, 165vw", focus: "55% 50%" },
+  { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-2 lg:row-span-3 lg:row-start-1", sizes: "(min-width: 1024px) 42vw, 50vw", focus: "50% 50%" },
+  { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-3 lg:row-start-1", sizes: "(min-width: 1024px) 30vw, 120vw", focus: "55% 50%" },
+  { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-3 lg:row-start-2", sizes: "(min-width: 1024px) 30vw, 120vw", focus: "72% 50%", lazy: true },
+  { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-3 lg:row-start-3", sizes: "(min-width: 1024px) 20vw, 50vw", focus: "50% 30%", lazy: true },
+];
 
-const rise: Variants = {
-  hidden: { opacity: 0, y: 28 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.9, ease: [0.16, 1, 0.3, 1] },
-  },
-};
+const STAGGER_MS = 60;
 
 export default function CreativeHero() {
-  const reduceMotion = useReducedMotion();
+  const { wall, line, cta } = creative.hero;
+  if (wall.length !== SLOTS.length) throw new Error(`hero wall needs ${SLOTS.length} frames`);
+
+  const frame = (i: number) => {
+    const f = wall[i];
+    const large = i === 0;
+    // The large frame is the LCP element: it paints at once (an opacity-0 start
+    // would hold LCP back by the whole 600 ms); the other four keep the stagger.
+    const style: CSSProperties | undefined = large ? undefined : { animationDelay: `${i * STAGGER_MS}ms` };
+    const entrance = large ? "" : "animate-settle motion-reduce:animate-none ";
+    return (
+      <div
+        key={f.src}
+        data-frame
+        style={style}
+        className={`overflow-hidden bg-surface ${entrance}${SLOTS[i].cell}`}
+      >
+        <img
+          src={f.src}
+          srcSet={frameSrcSet(f)}
+          sizes={SLOTS[i].sizes}
+          alt={f.alt}
+          width={f.width}
+          height={f.height}
+          fetchPriority={large ? "high" : undefined}
+          loading={SLOTS[i].lazy ? "lazy" : undefined}
+          decoding="async"
+          style={{ objectPosition: SLOTS[i].focus }}
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
+  };
 
   return (
     <section
       id="top"
-      className="relative flex min-h-[calc(100svh-4rem)] flex-col justify-between overflow-hidden"
+      className="px-4 pb-6 pt-3 sm:px-6 lg:h-[calc(100svh-4rem)] lg:overflow-hidden"
     >
-      <CreativeBackground />
-
-      <motion.div
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-16 sm:px-6"
-      >
-        <motion.div variants={rise} className="flex items-center gap-4">
-          <motion.span
-            aria-hidden="true"
-            className="text-2xl text-accent"
-            animate={reduceMotion ? undefined : { rotate: 360 }}
-            transition={
-              reduceMotion
-                ? undefined
-                : { duration: 20, ease: "linear", repeat: Infinity }
-            }
-          >
-            ✳
-          </motion.span>
-          <span className="text-xs font-semibold uppercase tracking-[0.35em] text-ink-soft">
-            {creativeHero.eyebrow}
-          </span>
-        </motion.div>
-
-        <motion.h1
-          variants={rise}
-          className="mt-8 font-display font-semibold leading-[0.92] tracking-tight text-ink"
-          style={{ fontSize: "clamp(2.75rem, 11vw, 8rem)" }}
+      <div className="relative mx-auto grid h-full max-w-6xl grid-cols-2 gap-3 lg:grid-cols-[minmax(0,50fr)_minmax(0,30fr)_minmax(0,19fr)] lg:grid-rows-[1fr_1fr_1.25fr]">
+        {/* Name strip (one line on lg+; at 7rem it runs a little past the large
+            frame onto the tall portrait, frosted, as in the mock), then the large
+            frame it overlaps by 2rem. */}
+        <div className="col-span-2 flex flex-col lg:col-span-1 lg:row-span-3 lg:min-h-0">
+          <div className="relative z-10 self-start bg-bg/85 pb-5 pr-6 pt-2 backdrop-blur-md lg:pt-0">
+            <h1 className="font-display text-[3.5rem] leading-[0.92] tracking-[-0.03em] text-ink sm:text-[4.5rem] lg:whitespace-nowrap lg:text-[5.5rem] xl:text-[7rem]">
+              Ahnaf Labib
+            </h1>
+            <p className="mt-3 font-mono text-xs uppercase tracking-wide text-ink-soft">{line}</p>
+          </div>
+          <div className="mt-3 flex min-h-0 flex-col lg:-mt-8 lg:flex-1">{frame(0)}</div>
+        </div>
+        {frame(1)}
+        {frame(2)}
+        {frame(3)}
+        {frame(4)}
+        <a
+          href="#rolls"
+          className="col-span-2 justify-self-end py-2 font-mono text-xs uppercase tracking-wide text-ink underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent lg:absolute lg:bottom-0 lg:right-0 lg:z-10 lg:bg-bg/75 lg:pb-0 lg:pl-4 lg:pt-3 lg:backdrop-blur-md"
         >
-          <SegmentedText lines={creativeHero.headline} />
-        </motion.h1>
-
-        <motion.div variants={rise} className="mt-12">
-          <a
-            href="#gallery"
-            className="group inline-flex items-center gap-3 rounded-full font-display text-xl italic text-ink transition-colors duration-200 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg sm:text-2xl"
-          >
-            {creativeHero.cta}
-            <span
-              aria-hidden="true"
-              className="not-italic transition-transform duration-300 group-hover:translate-y-1"
-            >
-              ↓
-            </span>
-          </a>
-        </motion.div>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1, delay: 0.5 }}
-        className="relative z-10 pb-10"
-      >
-        <Marquee items={creativeHero.marquee} />
-      </motion.div>
+          {/* Ink, not accent: over frame 5's light region the chip (bg/75) lets the
+              accent drop to ~2.3:1 worst case; ink stays ≥ 7.7:1. */}
+          {cta} <span aria-hidden="true" className="text-ink">↓</span>
+        </a>
+      </div>
     </section>
   );
 }

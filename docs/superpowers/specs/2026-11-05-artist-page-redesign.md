@@ -268,3 +268,62 @@ after the redesign); it is not modified.
   rendered.
 - Design work is not a section: Ahnaf's design work is his web projects,
   which the Dev persona already shows.
+
+## Revision v2: dark editorial (user decision, 2026-11-06)
+
+The owner reviewed the built page and chose a new direction from two
+mock-ups (same layout, paper vs dark): **dark**. This section supersedes
+the Page plan, Visual language, Hero, Statement, Rolls layout, Music and
+Contact sections above where they differ. The mock-up source is
+`scratchpad/mockups/mock-dark.html` (session only); its structure is the
+reference.
+
+### Palette (Artist persona tokens)
+`bg #0e0d0b`, `surface #161412`, `surface-2 #1f1c19`, `line #2a2622`,
+`ink #f3eee4`, `ink-soft #c9c1b3`, `ink-faint #8e8477` (≥4.5:1 on bg),
+`accent #e0522f` (≥4.5:1 on bg; accent-ink `#0e0d0b` on it ≥4.5:1),
+`accent-soft #f0663c`. The persona toggle and nav use the same tokens.
+Location everywhere: Indianapolis, IN (not Greencastle).
+
+### Hero — photo wall (one screen)
+An asymmetric grid filling `100svh − 4rem`: one large frame (≈50 % width,
+full height), a tall portrait, two landscapes and one portrait on the
+right, 12 px gaps. Frames: **to be chosen once the owner's new portrait
+photographs arrive** (hero candidates so far: red stage silhouette,
+fisheye B&W, blue 560 SL, chess-sunglasses portrait, cupola at dusk).
+The name `Ahnaf Labib` in Fraunces ~7rem, tracking −0.03em, on a frosted
+dark strip overlapping the top-left of the large frame; under it one mono
+line `Indianapolis, IN · 35mm & digital · 2024–26`; bottom-right mono link
+`See the rolls ↓`. Entrance: frames fade/settle once on load (600 ms,
+staggered 60 ms), none under reduced motion; no scroll effects. On phones
+the name sits above a 2-column wall.
+
+### Statement
+Two columns: the illustration as a 120 px sticker rotated −4° with a 1 px
+`line` border and soft shadow; the sentence as a Fraunces italic
+pull-quote at 2.75rem; below, three mono pills `35mm` `Indianapolis`
+`slide guitar` (from `creative.tags`). Statement text unchanged.
+
+### Rolls
+Section heading `Rolls` with `4 rolls · 17 frames` mono. Each roll: a
+two-column layout — left column `sticky top-24` with `R1` mono, title in
+Fraunces 2rem, `5 frames` mono, a thin rule; right column the CSS-columns
+contact sheet (as built). Frames with a baked-in white film border
+(`r1-02`, `r1-04`) are cropped to the image by `prepare-media` (auto-detect
+the near-white border, inset 2 px).
+
+### Music
+Covers in a horizontal snap-scroll strip (`scroll-snap-type: x mandatory`),
+each a 9:16 card with the Instagram embed (lazy, as built) and the mono
+title line beneath; the drafts player becomes a "deck" card
+(`surface-2`, 1 px `line`, 16 px radius is NOT used — square) with the
+three rows as built.
+
+### Contact
+`Say hello.` in Fraunces 5rem; one row of mono links `email · instagram ·
+linkedin · github` (no button); then the tiny `for work inquiries → the
+dev side ↗` switch. Footer unchanged.
+
+### Everything else
+Lightbox, drafts player behaviour, accessibility, reduced motion, tests
+and the verification pass stay as specified. Lighthouse target stays 90.

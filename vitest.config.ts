@@ -10,6 +10,6 @@ export default defineConfig({
     // was removed in recent Vitest majors).
     environment: "jsdom",
     setupFiles: ["src/test/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}", "api/**/*.test.ts"],
+    include: ["src/**/*.test.{ts,tsx}", "api/**/*.test.ts", "scripts/**/*.test.mjs"],
   },
 });
