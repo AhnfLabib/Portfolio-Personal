@@ -13,7 +13,9 @@ const KIND_CLASS: Record<Exclude<Line["kind"], "link">, string> = {
 const LINK_CLASS = "text-accent underline-offset-4 hover:underline";
 // Pinned to the idle body's rendered height (two prompt/output pairs) at each
 // width where the idle lines wrap differently, so activation never moves the hero.
-const LOG_HEIGHT = "h-[9.25rem] min-[24.875rem]:h-[8.25rem] min-[29.8125rem]:h-[7.25rem] sm:h-[8.25rem]";
+export const LOG_HEIGHT = "h-[9.25rem] min-[24.875rem]:h-[8.25rem] min-[29.8125rem]:h-[7.25rem] sm:h-[8.25rem]";
+// While active the log grows; below sm it is capped so the input stays above the phone keyboard.
+export const LOG_HEIGHT_ACTIVE = "h-[min(22rem,60svh)] sm:h-[22rem]";
 const HINT_WORDS = HINT_LINE.text.replace(/^try:\s*/, "").split(" · ");
 
 /** Each prompt starts a group; output lines sit 4px under it, groups 12px apart. */
@@ -86,11 +88,17 @@ export default function Terminal() {
     if (state.active) inputRef.current?.focus();
   }, [state.active]);
 
-  // Keep the newest line in view.
+  // Keep the newest line in view, now and again once the height transition settles.
   useEffect(() => {
     const log = logRef.current;
-    if (log) log.scrollTop = log.scrollHeight;
-  }, [state.lines, showPrompt, state.showHint]);
+    if (!log) return;
+    log.scrollTop = log.scrollHeight;
+    const onEnd = (e: TransitionEvent) => {
+      if (e.target === log && e.propertyName === "height") log.scrollTop = log.scrollHeight;
+    };
+    log.addEventListener("transitionend", onEnd);
+    return () => log.removeEventListener("transitionend", onEnd);
+  }, [state.lines, showPrompt, state.showHint, state.active]);
 
   /** The cat is its own button: focusing or clicking it never activates the terminal. */
   const onCat = (e: { target: EventTarget }) => (e.target as Element).closest("[data-cat]") !== null;
@@ -132,6 +140,7 @@ export default function Terminal() {
     <div
       className="relative"
       role="group"
+      data-active={state.active ? "true" : "false"}
       // Untabbable while active, so Shift+Tab from the input leaves the card.
       tabIndex={state.active ? -1 : 0}
       aria-label="Interactive terminal. Click or press Enter to type commands."
@@ -140,7 +149,7 @@ export default function Terminal() {
       onBlur={onBlur}
     >
       <p id={hintId} className="sr-only">
-        Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves.
+        Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves. The card grows while you type.
       </p>
       <div className="overflow-hidden rounded-xl border border-line bg-surface text-left shadow-2xl shadow-black/40">
         <div className="flex items-center gap-2 border-b border-line bg-surface-2 px-4 py-3">
@@ -153,8 +162,9 @@ export default function Terminal() {
           ref={logRef}
           role="log"
           aria-live="polite"
+          data-testid="terminal-log"
           onClick={state.busy ? api.finishTyping : undefined}
-          className={`${LOG_HEIGHT} space-y-3 overflow-y-auto p-4 font-mono text-xs whitespace-pre-wrap [overflow-wrap:anywhere] sm:text-sm`}
+          className={`${state.active ? LOG_HEIGHT_ACTIVE : LOG_HEIGHT} transition-[height] duration-[260ms] ease-out motion-reduce:transition-none space-y-3 overflow-y-auto p-4 font-mono text-xs whitespace-pre-wrap [overflow-wrap:anywhere] sm:text-sm`}
         >
           {groupLines(state.lines).map((group, gi) => (
             <motion.div

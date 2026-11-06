@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { fireEvent, getDefaultNormalizer, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import Terminal from "./Terminal";
+import Terminal, { LOG_HEIGHT, LOG_HEIGHT_ACTIVE } from "./Terminal";
 import { IDLE_LINES } from "./commands";
 
 // Report prefers-reduced-motion so output appears instantly (no typewriter waits).
@@ -198,7 +198,7 @@ describe("Terminal", () => {
     expect(t.card()).toHaveAttribute("role", "group");
     const input = await t.activate();
     expect(input).toHaveAccessibleDescription(
-      "Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves.",
+      "Click or press Enter to type commands. Arrow keys recall history, Tab completes, Escape leaves. The card grows while you type.",
     );
     expect(input).toHaveClass("text-base", "sm:text-sm");
   });
@@ -314,5 +314,63 @@ describe("Terminal", () => {
       "shadow-2xl",
       "shadow-black/40",
     );
+  });
+
+  it("grows while active and shrinks on Escape", async () => {
+    const t = setup();
+    const log = screen.getByTestId("terminal-log");
+    expect(log).toBe(t.log());
+    expect(log.className).toContain(LOG_HEIGHT);
+    expect(log.className).not.toContain(LOG_HEIGHT_ACTIVE);
+    expect(t.card()).toHaveAttribute("data-active", "false");
+    await t.activate();
+    expect(log.className).toContain(LOG_HEIGHT_ACTIVE);
+    expect(log.className).not.toContain(LOG_HEIGHT);
+    expect(t.card()).toHaveAttribute("data-active", "true");
+    await t.user.keyboard("{Escape}");
+    expect(log.className).toContain(LOG_HEIGHT);
+    expect(log.className).not.toContain(LOG_HEIGHT_ACTIVE);
+    expect(t.card()).toHaveAttribute("data-active", "false");
+  });
+
+  it("toggling quickly ends inactive", async () => {
+    const t = setup();
+    await t.activate();
+    await t.user.keyboard("{Escape}");
+    await t.activate();
+    await t.user.keyboard("{Escape}");
+    const log = screen.getByTestId("terminal-log");
+    expect(log.className).toContain(LOG_HEIGHT);
+    expect(log.className).not.toContain(LOG_HEIGHT_ACTIVE);
+    expect(log.style.height).toBe("");
+    expect(t.card()).toHaveAttribute("data-active", "false");
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("has a height transition that reduced motion removes", () => {
+    setup();
+    expect(screen.getByTestId("terminal-log")).toHaveClass(
+      "transition-[height]",
+      "duration-[260ms]",
+      "ease-out",
+      "motion-reduce:transition-none",
+    );
+  });
+
+  it("scrolls the log to the bottom when the height transition ends", async () => {
+    const t = setup();
+    await t.activate();
+    const log = screen.getByTestId("terminal-log");
+    Object.defineProperty(log, "scrollHeight", { configurable: true, value: 500 });
+    log.scrollTop = 0;
+    fireEvent.transitionEnd(log, { propertyName: "opacity" });
+    expect(log.scrollTop).toBe(0);
+    fireEvent.transitionEnd(log, { propertyName: "height" });
+    expect(log.scrollTop).toBe(500);
+  });
+
+  it("the screen-reader description says the card grows", () => {
+    setup();
+    expect(screen.getByText(/The card grows while you type\.$/)).toHaveClass("sr-only");
   });
 });
