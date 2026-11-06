@@ -14,8 +14,8 @@ export const navDev: NavItem[] = [
 
 export const navCreative: NavItem[] = [
   { label: "Statement", href: "#statement" },
-  { label: "Crafts", href: "#crafts" },
-  { label: "Gallery", href: "#gallery" },
+  { label: "Rolls", href: "#rolls" },
+  { label: "Music", href: "#music" },
   { label: "Contact", href: "#contact" },
 ];
 
@@ -223,11 +223,6 @@ export const contact = {
     "https://script.google.com/macros/s/AKfycbwb-E9rJbvJl6Hod44RMHsqmZHx7Nf2Gi2OlaQvzI_8CAtMH7e7c5BDSO7qgCXc9wHa/exec",
 } as const;
 
-export const quote = {
-  text: "We are what we repeatedly do. Excellence, then, is not an act, but a habit.",
-  author: "Will Durant",
-} as const;
-
 export const socials = [
   { label: "Email", href: "mailto:ahnaflabib212@gmail.com", icon: "mail" },
   {
@@ -247,144 +242,227 @@ export const githubProfile = "https://github.com/AhnfLabib";
 
 /* ------------------------------------------------------------------ *
  * Creative persona ("The Artist") content.
+ * Frames and drafts are pasted from scripts/media-manifest.json.
  * ------------------------------------------------------------------ */
 
-/** A run of text that can be italicized and/or tinted with the accent color. */
-export interface TextSegment {
-  text: string;
-  italic?: boolean;
-  accent?: boolean;
+export interface Frame {
+  src: string;
+  width: number;
+  height: number;
+  alt: string;
+  /** Extra sizes prepare-media writes for this frame (EXTRA_WIDTHS), besides -800 and the full file. */
+  variants?: { src: string; width: number }[];
 }
 
-/** Headlines/statements are modeled as lines of segments so the display font
- *  can mix roman and italic runs, and lay each line out on its own row. */
-export const creativeHero: {
-  eyebrow: string;
-  headline: TextSegment[][];
-  cta: string;
-  marquee: string[];
-} = {
-  eyebrow: "The Artist",
-  headline: [
-    [{ text: "Ahnaf makes" }],
-    [
-      { text: "photographs", italic: true, accent: true },
-      { text: ", " },
-      { text: "music", italic: true, accent: true },
+export interface Roll {
+  id: string;
+  title: string;
+  frames: Frame[];
+}
+
+export interface Cover {
+  title: string;
+  artist: string;
+  /** Instagram reel shortcode. */
+  reel: string;
+}
+
+export interface Draft {
+  title: string;
+  src: string;
+  month: string;
+  /** Seconds. */
+  duration: number;
+}
+
+const creativeRolls: Roll[] = [
+  {
+    id: "light",
+    title: "Light",
+    frames: [
+      {
+        src: "/gallery/r1-01.jpg",
+        width: 1600,
+        height: 900,
+        alt: "The solar corona glowing around the moon during totality.",
+      },
+      {
+        src: "/gallery/r1-02.jpg",
+        width: 1600,
+        height: 1226,
+        alt: "A living room with a TV at golden hour, sunlight striping the wall.",
+      },
+      {
+        src: "/gallery/r1-03.jpg",
+        width: 1600,
+        height: 900,
+        alt: "A white cupola lit from inside at dusk, framed by trees.",
+      },
+      {
+        src: "/gallery/r1-04.jpg",
+        width: 1600,
+        height: 1226,
+        alt: "A dim living room with a glass coffee table and a checkered rug.",
+      },
+      {
+        src: "/gallery/r1-05.jpg",
+        width: 1600,
+        height: 900,
+        alt: "A porch with two rocking chairs beside a large oak trunk.",
+      },
     ],
-    [{ text: "& other beautiful things." }],
-  ],
-  cta: "See the gallery",
-  marquee: [
-    "PHOTOGRAPHY",
-    "MUSIC",
-    "DESIGN",
-    "STORYTELLING",
-    "35MM",
-    "LIGHT",
-    "GRAIN",
-  ],
-};
+  },
+  {
+    id: "street",
+    title: "Street",
+    frames: [
+      {
+        src: "/gallery/r2-01.jpg",
+        width: 1600,
+        height: 900,
+        alt: "A Dhaka metro platform under an “Uttara North” departure board.",
+      },
+      {
+        src: "/gallery/r2-02.jpg",
+        width: 1600,
+        height: 900,
+        alt: "A ONE WAY sign in fog at night.",
+      },
+      {
+        src: "/gallery/r2-03.jpg",
+        width: 1200,
+        height: 1600,
+        alt: "A fisheye view from a car window of a brick downtown block.",
+      },
+      {
+        src: "/gallery/r2-04.jpg",
+        width: 1600,
+        height: 900,
+        alt: "A blue Mercedes 560 SL on a highway at dusk, traffic cones ahead.",
+      },
+    ],
+  },
+  {
+    id: "stage",
+    title: "Stage",
+    frames: [
+      {
+        src: "/gallery/r3-01.jpg",
+        width: 1520,
+        height: 853,
+        alt: "A singer silhouetted against a red LED wall.",
+      },
+      {
+        src: "/gallery/r3-02.jpg",
+        width: 1600,
+        height: 898,
+        alt: "A band silhouetted against a red wall, the drummer mid-hit.",
+      },
+      {
+        src: "/gallery/r3-03.jpg",
+        width: 898,
+        height: 1600,
+        alt: "A guitarist bathed in blue light, eyes closed.",
+      },
+      {
+        src: "/gallery/r3-04.jpg",
+        width: 1600,
+        height: 898,
+        alt: "A guitarist and a saxophonist backlit by stage beams.",
+      },
+    ],
+  },
+  {
+    id: "portrait",
+    title: "Portrait",
+    frames: [
+      {
+        src: "/gallery/r4-01.jpg",
+        width: 1200,
+        height: 1600,
+        alt: "Half a face in sunglasses whose lens is inked with chess taunts.",
+      },
+      {
+        src: "/gallery/r4-02.jpg",
+        width: 1600,
+        height: 898,
+        alt: "Two friends in dark coats standing in a doorway at night.",
+        variants: [{ src: "/gallery/r4-02-1200.jpg", width: 1200 }],
+      },
+      {
+        src: "/gallery/r4-03.jpg",
+        width: 1202,
+        height: 1600,
+        alt: "A portrait in a cream knit shirt against a grey studio wall.",
+      },
+      {
+        src: "/gallery/r4-04.jpg",
+        width: 1202,
+        height: 1600,
+        alt: "Two friends back to back in a studio, leather jacket and white shirt.",
+      },
+    ],
+  },
+];
 
-export type CraftIcon = "Camera" | "Music" | "PenTool";
-
-export interface Craft {
-  title: string;
-  description: string;
-  icon: CraftIcon;
-  link: string;
-}
-
-export interface GalleryItem {
-  title: string;
-  medium: string;
-  /** Optional — drop a file in public/assets/gallery/ and set this to upgrade
-   *  the tile from an abstract gradient to a real photograph. */
-  image?: string;
-  palette: [string, string];
+/** The roll frame with this src: the hero wall shows roll frames, never copies. */
+function rollFrame(src: string): Frame {
+  for (const roll of creativeRolls) for (const f of roll.frames) if (f.src === src) return f;
+  throw new Error(`no roll frame ${src}`);
 }
 
 export const creative: {
-  statement: TextSegment[][];
-  crafts: Craft[];
-  gallery: GalleryItem[];
+  /** wall: exactly five roll frames, in slot order: large, tall portrait,
+   * landscape, landscape, small portrait. */
+  hero: { wall: Frame[]; line: string; cta: string };
+  statement: string;
+  /** Mono pills under the statement. */
+  tags: string[];
+  now: string;
+  rolls: Roll[];
+  music: {
+    handle: string;
+    url: string;
+    line: string;
+    covers: Cover[];
+    drafts: Draft[];
+    draftsLine: string;
+  };
+  contact: { headline: string };
 } = {
-  statement: [
-    [
-      { text: "I chase the " },
-      { text: "quiet in-between", italic: true, accent: true },
-      { text: "—" },
+  hero: {
+    wall: [
+      rollFrame("/gallery/r4-02.jpg"),
+      rollFrame("/gallery/r4-04.jpg"),
+      rollFrame("/gallery/r3-01.jpg"),
+      rollFrame("/gallery/r2-04.jpg"),
+      rollFrame("/gallery/r4-03.jpg"),
     ],
-    [{ text: "the half-second before a room" }],
-    [
-      { text: "remembers it's being " },
-      { text: "watched", italic: true, accent: true },
-      { text: "." },
+    line: "Indianapolis, IN · 35mm & digital · 2024–26",
+    cta: "See the rolls",
+  },
+  statement:
+    "I photograph what light does when nobody is posing: rooms at the end of the day, stages lit red, a street in fog, one eclipse. Between frames I play guitar.",
+  tags: ["35mm", "Indianapolis", "slide guitar"],
+  now: "shooting on 35mm around Indianapolis · learning slide guitar",
+  rolls: creativeRolls,
+  music: {
+    handle: "@labib.onrecord",
+    url: "https://www.instagram.com/labib.onrecord/",
+    line: "Covers, recorded in one take, and drafts of my own.",
+    covers: [
+      { title: "Lover, You Should've Come Over", artist: "Jeff Buckley", reel: "DfWL_P3x3Cs" },
+      { title: "Tuyo", artist: "Rodrigo Amarante", reel: "Des9G6mOc-7" },
+      { title: "Love Ain't Always So Good", artist: "", reel: "DefxSxpNfCp" },
     ],
-  ],
-  crafts: [
-    {
-      title: "Photography",
-      description:
-        "Shooting on grainy, warm-toned 35mm around Greencastle and wherever the light gets interesting. Portraits, streets, and the long golden hours in between.",
-      icon: "Camera",
-      link: "https://www.instagram.com/itsded_inside/",
-    },
-    {
-      title: "Music",
-      description:
-        "A guitar, a loop pedal, and too many half-finished ideas. I play by feel — bending progressions until they say something I couldn't otherwise.",
-      icon: "Music",
-      link: "https://www.instagram.com/itsded_inside/",
-    },
-    {
-      title: "Design",
-      description:
-        "Interfaces and small print pieces where typography does the heavy lifting. I like whitespace, restraint, and one loud gesture per page.",
-      icon: "PenTool",
-      link: "https://github.com/AhnfLabib",
-    },
-  ],
-  gallery: [
-    {
-      title: "Golden Hour, Greencastle",
-      medium: "35mm · 2025",
-      palette: ["#e9a23b", "#8c3d15"],
-    },
-    {
-      title: "Practice Room, 11 PM",
-      medium: "Digital · 2025",
-      palette: ["#3a3550", "#12101c"],
-    },
-    {
-      title: "Frost on the Quad",
-      medium: "35mm · 2024",
-      palette: ["#cdd7e0", "#6d7f92"],
-    },
-    {
-      title: "Six Strings, Soft Focus",
-      medium: "35mm · 2025",
-      palette: ["#c65a2e", "#40160c"],
-    },
-    {
-      title: "Last Light, Highway 231",
-      medium: "Digital · 2024",
-      palette: ["#f0663c", "#3a1a2e"],
-    },
-    {
-      title: "Stillness, Studio Floor",
-      medium: "35mm · 2025",
-      palette: ["#b9a67f", "#4a4030"],
-    },
-    {
-      title: "Neon After Rain",
-      medium: "Digital · 2025",
-      palette: ["#2e6c8c", "#0e1c26"],
-    },
-    {
-      title: "Self, Overexposed",
-      medium: "35mm · 2024",
-      palette: ["#e7d3b0", "#9a6b3f"],
-    },
-  ],
+    drafts: [
+      { title: "Fog", src: "/audio/fog.mp3", month: "", duration: 44 },
+      { title: "Untitled 1", src: "/audio/untitled-1.mp3", month: "", duration: 53 },
+      { title: "Dragonfly", src: "/audio/dragonfly.mp3", month: "", duration: 18 },
+    ],
+    draftsLine: "unfinished, on purpose",
+  },
+  contact: {
+    headline: "Say hello.",
+  },
 };

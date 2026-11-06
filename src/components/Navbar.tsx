@@ -19,14 +19,12 @@ export default function Navbar() {
   }, [persona]);
 
   // Active-section tracking. Re-run per persona because the observed ids and
-  // rendered sections differ entirely between the two portfolios.
+  // rendered sections differ entirely between the two portfolios. Each persona
+  // is a lazy chunk, so its sections usually mount after this effect runs: a
+  // MutationObserver watches for them and hands each one to the spy once.
   useEffect(() => {
     const ids = navItems.map((item) => item.href.slice(1));
-    const els = ids
-      .map((id) => document.getElementById(id))
-      .filter((el): el is HTMLElement => el !== null);
-
-    if (els.length === 0) return;
+    const seen = new Set<HTMLElement>();
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -39,8 +37,29 @@ export default function Navbar() {
       { rootMargin: "-10% 0px -85% 0px", threshold: 0 },
     );
 
-    els.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    const observeMounted = () => {
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el && !seen.has(el)) {
+          seen.add(el);
+          observer.observe(el);
+        }
+      }
+      return seen.size >= ids.length;
+    };
+
+    let mutations: MutationObserver | null = null;
+    if (!observeMounted()) {
+      mutations = new MutationObserver(() => {
+        if (observeMounted()) mutations?.disconnect();
+      });
+      mutations.observe(document.body, { childList: true, subtree: true });
+    }
+
+    return () => {
+      mutations?.disconnect();
+      observer.disconnect();
+    };
     // navItems is derived from persona; persona is the true dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persona]);
