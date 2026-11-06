@@ -6,6 +6,7 @@ import { nextIndex, type Pos } from "./lightboxNav";
 import { creative } from "../../data/content";
 
 const rolls = creative.rolls;
+const last = { roll: rolls.length - 1, frame: rolls.at(-1)!.frames.length - 1 };
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -176,7 +177,7 @@ describe("Lightbox", () => {
     expect(screen.getByRole("button", { name: "Next frame" })).not.toHaveAttribute("aria-disabled");
     await user.click(prev);
     expect(onNavigate).not.toHaveBeenCalled();
-    rerender(<Lightbox {...props} pos={{ roll: 3, frame: 3 }} />);
+    rerender(<Lightbox {...props} pos={last} />);
     const next = screen.getByRole("button", { name: "Next frame" });
     expect(next).toHaveAttribute("aria-disabled", "true");
     await user.click(next);

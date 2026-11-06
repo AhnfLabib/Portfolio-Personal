@@ -49,4 +49,26 @@ describe("CreativeHero", () => {
     expect(container.querySelector("[data-marquee]")).toBeNull();
     expect(container.querySelector('[class*="gradient"]')).toBeNull();
   });
+
+  it("sizes the landscape slots by cell height (object-cover over 16:9), not cell width", () => {
+    render(<CreativeHero />);
+    const imgs = screen.getAllByRole("img");
+    expect(imgs[2]).toHaveAttribute("sizes", "(min-width: 1024px) 30vw, 120vw");
+    expect(imgs[3]).toHaveAttribute("sizes", "(min-width: 1024px) 30vw, 120vw");
+  });
+
+  it("loads the first three frames eagerly and lazy-loads the two below the phone fold", () => {
+    render(<CreativeHero />);
+    const imgs = screen.getAllByRole("img");
+    [0, 1, 2].forEach((i) => expect(imgs[i]).not.toHaveAttribute("loading", "lazy"));
+    [3, 4].forEach((i) => expect(imgs[i]).toHaveAttribute("loading", "lazy"));
+  });
+
+  it("keys the multi-column wall to lg (tablets get the phone layout)", () => {
+    const { container } = render(<CreativeHero />);
+    const section = container.querySelector("section#top")!;
+    expect(section.className).toMatch(/lg:h-\[calc\(100svh-4rem\)\]/);
+    const all = [section, ...section.querySelectorAll("*")].map((el) => el.getAttribute("class") ?? "");
+    expect(all.join(" ")).not.toMatch(/(^|\s)md:/);
+  });
 });
