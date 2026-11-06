@@ -406,6 +406,26 @@ describe("useTerminal", () => {
     expect(state().busy).toBe(false);
   });
 
+  it("play without onPlay still prints the stretch line", () => {
+    const { state, run } = setup();
+    run("play");
+    expect(state().lines.at(-1)).toEqual({ kind: "text", text: "the cat stretches…" });
+    expect(state().busy).toBe(false);
+  });
+
+  it("play calls the onPlay from the latest render", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const hook = renderHook((deps: Deps) => useTerminal(deps), {
+      initialProps: { reduceMotion: true, storage: null, onPlay: first },
+    });
+    hook.rerender({ reduceMotion: true, storage: null, onPlay: second });
+    act(() => hook.result.current[1].setInput("play"));
+    act(() => hook.result.current[1].submit());
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
   it("open effect opens a new tab", () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { run } = setup();
