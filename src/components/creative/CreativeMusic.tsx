@@ -44,6 +44,7 @@ export default function CreativeMusic(): JSX.Element {
 
         <ul
           ref={listRef}
+          aria-label="Covers"
           className="mt-10 flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 [scrollbar-width:thin]"
         >
           {music.covers.map(({ title, artist, reel }) => (

@@ -73,7 +73,7 @@ describe("CreativeMusic", () => {
 
   it("lays covers out in a horizontal snap strip of 9:16 frames", () => {
     render(<CreativeMusic />);
-    const list = screen.getAllByRole("list")[0];
+    const list = screen.getByRole("list", { name: "Covers" });
     expect(list).toHaveClass("flex", "overflow-x-auto", "snap-x", "snap-mandatory", "mt-10", "gap-4");
     expect(list).not.toHaveClass("grid");
     for (const item of within(list).getAllByRole("listitem")) {

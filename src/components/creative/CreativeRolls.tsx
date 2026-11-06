@@ -21,7 +21,7 @@ export default function CreativeRolls({
     <section id="rolls" className="scroll-mt-24 px-4 py-24 sm:px-6 sm:py-32">
       <div className="mx-auto max-w-6xl">
         <div className="mb-12 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-          <h2 className="font-display text-[2rem] leading-tight text-ink">Rolls</h2>
+          <h2 className="font-display text-[2.5rem] sm:text-[3rem] leading-tight text-ink">Rolls</h2>
           <p className="font-mono text-xs uppercase tracking-wide text-ink-faint">
             {creative.rolls.length} rolls · {totalFrames} frames
           </p>

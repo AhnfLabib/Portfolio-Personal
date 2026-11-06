@@ -31,6 +31,17 @@ describe("DraftPlayer", () => {
     expect(container.textContent).not.toMatch(/·/);
   });
 
+  it("styles the Firefox range track and progress to match the WebKit look", () => {
+    render(<DraftPlayer draft={draft} index={0} playing={false} onPlay={() => {}} onPause={() => {}} onEnded={() => {}} />);
+    const range = screen.getByRole("slider", { name: "Seek Fog" });
+    expect(range).toHaveClass(
+      "accent-accent",
+      "[&::-moz-range-track]:h-1",
+      "[&::-moz-range-track]:bg-line",
+      "[&::-moz-range-progress]:bg-accent",
+    );
+  });
+
   it("shows the month when present", () => {
     render(
       <DraftPlayer

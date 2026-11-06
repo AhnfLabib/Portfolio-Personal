@@ -33,6 +33,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  window.localStorage.removeItem("portfolio-persona");
+  delete document.documentElement.dataset.persona;
 });
 
 describe("CreativePortfolio", () => {

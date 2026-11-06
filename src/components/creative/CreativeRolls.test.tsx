@@ -62,7 +62,9 @@ describe("CreativeRolls", () => {
 
   it("has a Rolls heading with the roll and frame counts from data", () => {
     render(<CreativeRolls onOpen={() => {}} />);
-    expect(screen.getByRole("heading", { level: 2, name: "Rolls" })).toBeInTheDocument();
+    const h2 = screen.getByRole("heading", { level: 2, name: "Rolls" });
+    expect(h2).toHaveClass("text-[2.5rem]", "sm:text-[3rem]");
+    expect(h2).not.toHaveClass("text-[2rem]");
     expect(screen.getByText(`${creative.rolls.length} rolls · ${total} frames`)).toBeInTheDocument();
     expect(screen.getByText("4 rolls · 14 frames")).toBeInTheDocument();
   });

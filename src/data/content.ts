@@ -288,7 +288,7 @@ export const creative: {
     drafts: Draft[];
     draftsLine: string;
   };
-  contact: { headline: string; line: string };
+  contact: { headline: string };
 } = {
   hero: {
     image: {
@@ -432,6 +432,5 @@ export const creative: {
   },
   contact: {
     headline: "Say hello.",
-    line: "A print, a portrait, a song, or a website — say hello and let's trade ideas.",
   },
 };
