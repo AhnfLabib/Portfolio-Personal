@@ -31,15 +31,20 @@ describe("CreativeHero", () => {
     expect(cta).toHaveAttribute("href", "#rolls");
   });
 
-  it("frames settle in once with a staggered CSS entrance, off under reduced motion", () => {
+  it("frames settle in once with a staggered CSS entrance, off under reduced motion; the large (LCP) frame paints at once", () => {
     const { container } = render(<CreativeHero />);
     const frames = container.querySelectorAll("[data-frame]");
     expect(frames).toHaveLength(5);
     frames.forEach((el, i) => {
+      expect(within(el as HTMLElement).getByRole("img")).toBeInTheDocument();
+      if (i === 0) {
+        expect(el.className).not.toMatch(/animate-settle/);
+        expect((el as HTMLElement).style.animationDelay).toBe("");
+        return;
+      }
       expect(el.className).toMatch(/animate-settle/);
       expect(el.className).toMatch(/motion-reduce:animate-none/);
       expect((el as HTMLElement).style.animationDelay).toBe(`${i * 60}ms`);
-      expect(within(el as HTMLElement).getByRole("img")).toBeInTheDocument();
     });
   });
 

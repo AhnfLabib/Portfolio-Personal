@@ -37,7 +37,7 @@ export default function CreativeMusic(): JSX.Element {
           href={music.url}
           target="_blank"
           rel="noreferrer"
-          className="mt-3 inline-block font-mono text-xs uppercase tracking-wide text-accent underline-offset-4 hover:underline"
+          className="mt-3 inline-block font-mono text-xs uppercase tracking-wide text-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
         >
           {music.handle} →
         </a>
@@ -64,7 +64,7 @@ export default function CreativeMusic(): JSX.Element {
                 href={`https://www.instagram.com/reel/${reel}/`}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-2 block font-mono text-xs uppercase tracking-wide text-ink-soft hover:text-accent"
+                className="mt-2 block font-mono text-xs uppercase tracking-wide text-ink-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
               >
                 {title}
                 {artist ? ` · ${artist}` : ""}

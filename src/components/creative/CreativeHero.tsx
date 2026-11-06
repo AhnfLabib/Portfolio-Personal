@@ -35,13 +35,16 @@ export default function CreativeHero() {
   const frame = (i: number) => {
     const f = wall[i];
     const large = i === 0;
-    const style: CSSProperties = { animationDelay: `${i * STAGGER_MS}ms` };
+    // The large frame is the LCP element: it paints at once (an opacity-0 start
+    // would hold LCP back by the whole 600 ms); the other four keep the stagger.
+    const style: CSSProperties | undefined = large ? undefined : { animationDelay: `${i * STAGGER_MS}ms` };
+    const entrance = large ? "" : "animate-settle motion-reduce:animate-none ";
     return (
       <div
         key={f.src}
         data-frame
         style={style}
-        className={`overflow-hidden bg-surface animate-settle motion-reduce:animate-none ${SLOTS[i].cell}`}
+        className={`overflow-hidden bg-surface ${entrance}${SLOTS[i].cell}`}
       >
         <img
           src={f.src}

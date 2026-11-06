@@ -384,3 +384,243 @@ Remaining levers, none applied because each changes the design or goes beyond th
 For reference, the intermediate build had `fallback={null}` and no Navbar fix. It scored 88/85/87 with LCP 2.4–3.0 s
 but CLS 0.20; the lower simulated LCP came with the footer jump. Simulated LCP varies by about ±0.5 s between runs here,
 as it did in Task 8 (3.9–4.8 s).
+
+## v2 re-verification (85e812f)
+
+Date: 2026-11-06. Branch `artist-redesign` at `85e812f` (Task 13), against the v2 dark page: hero photo wall,
+statement sticker, sticky rolls, music strip, big contact. Setup as before: `npm run build`,
+`npx vite preview --port 4175`, Playwright (`chromium.launch()`) with `localStorage["portfolio-persona"]="creative"`
+and `sessionStorage["intro-played"]="1"` set by `addInitScript`. The checker and Lighthouse used a temporary
+`dist/artist.html` (persona set on `<html>` and in an inline script), deleted afterwards along with `dist/.taste-skill/`.
+Raw outputs are in the session scratchpad (not committed): `v2-verify.cjs` / `v2-verify.json` (Playwright),
+`v2-lh-{before,after}-{1,2,3}.json` (Lighthouse), `v2-taste/consistency.txt`, `v2-taste/check.{txt,json}` and the
+checker crops in `v2-taste/consistency-artist/`.
+
+Harness note: the page sets `scroll-behavior: smooth` on `html`, so stepped `window.scrollTo(0, y)` calls never reach
+the bottom in a fast loop (the first run reported 0 iframes and 4 unloaded roll frames at 390 for that reason). All
+numbers below come from runs that scroll with `behavior: "instant"`.
+
+### Summary
+
+| # | Check | Result | Key number |
+|---|---|---|---|
+| 1 | Hero alone on the first screen (1440×900) | PASS | `#statement` top = 900; `#top` 64 → 900 (836 tall) |
+| 2 | Every roll frame renders | PASS | 17/17 `naturalWidth > 0` at 1440, 1024, 768 and 390; hero wall 5/5 |
+| 3 | Lightbox from a roll frame: ← → Esc, focus return | PASS | R2 · 01 → R2 · 02 → R2 · 01; Esc removes the dialog; focus back on the opener |
+| 4 | Covers strip mounts iframes after scroll | PASS (mount) | 3 iframes at every width; embed content not verifiable here (see below) |
+| 5 | Drafts: one playing at a time | PASS | `paused` flips; never more than one `aria-pressed="true"`; 0 `play()` rejections |
+| 6 | No horizontal scroll at 390 and 768 | PASS | `scrollWidth` 390 / 768; `scrollTo(500, y)` leaves `scrollX` 0 |
+| 7 | Sticky roll meta at 1440 | PASS | `position: sticky; top: 96px`; meta top 96/96/96 while scrolling through roll 1 |
+| 8 | Console errors | PASS | 0 page errors; 0 console errors in the final run (one earlier run logged an Instagram CSP report-only notice from inside the embed frame) |
+| 9 | Accessibility (axe-core 4.14 + manual) | PASS after 2 fixes | 0 axe violations; focus ring missing on 4 links + 6 draft controls → fixed |
+| 10 | Reduced motion | PASS | hero `settle` → `none`; roll hover scale 1; roll and lightbox transitions 0 |
+| 11 | taste-skill checker | 170 FAIL / 47 WARN raw; 0 real FAIL left unfixed in code, 3 follow-ups | check.mjs still cannot run on this markup |
+| 12 | Lighthouse mobile ×3 | FAIL against 90 | Performance median 80 → **85** after the LCP fix; Accessibility 100; Best practices 100 |
+| 13 | Contrast | PASS | ink-faint/bg 5.29; accent/bg 5.01; hero strip worst case 7.25 (ink-soft) |
+
+Full-page screenshots (deviceScaleFactor 2): `v2-1440.png`, `v2-1024.png`, `v2-768.png`, `v2-390.png`; plus
+`v2-1440-lightbox.png`, `v2-1440-focus-cta.png`, `v2-1440-focus-frame.png` and the before/after focus crops
+`v2-focus-{before,after}-{frame,cover-link,play,seek,contact}.png`. All in the scratchpad.
+
+### 1–8. Functional checks
+
+First screen, before any scroll:
+
+| Width | `#top` top / height | `#statement` top | innerHeight |
+|---|---|---|---|
+| 1440×900 | 64 / 836 | **900** | 900 |
+| 1024×768 | 64 / 704 | 768 | 768 |
+| 768×1024 | 64 / 1722 | 1786 | 1024 |
+| 390×844 | 64 / 1043 | 1107 | 844 |
+
+At 1440 and 1024 (lg+) the wall is exactly one screen. Below lg the wall is taller than a screen by design (spec:
+"On phones the name sits above a 2-column wall").
+
+Images after a full instant scroll and network idle: `#rolls img` 17/17 complete with `naturalWidth > 0` at all four
+widths; `#top img` 5/5. Hero `currentSrc` at 1440: `r4-02.jpg`, `r4-04.jpg`, `r3-01.jpg`, `r2-04.jpg`, `r4-03-800.jpg`.
+
+Lightbox (1440, opened from roll 2 frame 1, "A Dhaka metro platform under an “Uttara North” departure board."):
+
+| Step | Position (`aria-live`) | Focus |
+|---|---|---|
+| Open | R2 · 01 | Close |
+| ArrowRight | R2 · 02 ("A ONE WAY sign in fog at night.") | Close |
+| ArrowLeft | R2 · 01 | Close |
+| Escape | dialog removed (0 `[role=dialog]`) | the opener button (`activeElement` aria-label matches) |
+
+`aria-modal="true"`.
+
+Covers: 3 `iframe`s (`instagram.com/reel/<id>/embed/`, each with a `title`) mount at all four widths once the strip
+nears the viewport. Whether Instagram renders the reels inside them is **not verifiable** in this sandbox; the
+Playwright screenshots show the frames, not confirmed reel content.
+
+Drafts (1440):
+
+| Step | `aria-pressed` (Fog, Untitled 1, Dragonfly) | `audio.paused` |
+|---|---|---|
+| Initial | false, false, false | true, true, true |
+| Play row 1 | **true**, false, false | **false**, true, true |
+| Play row 2 | false, **true**, false | true, **false**, true |
+| Row 2 again | false, false, false | true, true, true |
+
+Sticky meta (1440): every `[data-roll-meta]` is `position: sticky` at md+ (`static` at 390, where the meta sits
+inline above the sheet). Roll 1 is 409 px tall; scrolled to 20/40/60 % of it, the article top was 14 / −67 / −149
+while the meta top stayed **96 / 96 / 96**; after the roll it scrolls away (−497).
+
+### 9. Accessibility
+
+`axe-core` is not in the project's `node_modules`; version 4.14.0 was installed into the scratchpad only and
+injected at 1440 after a full scroll (tags wcag2a/aa, wcag21a/aa, best-practice).
+
+- **0 violations**, 45 passes.
+- Incomplete (needs review): `color-contrast` ×10 (axe gives up over images or overlapping layers: the persona pill,
+  the h1 and mono line on the frosted strip, the hero CTA, the aria-hidden ↓ glyph); `frame-tested` ×3 (the
+  cross-origin Instagram iframes); `label-content-name-mismatch` ×3. The contrast items are covered by the manual
+  check in section 13 and by Lighthouse's `color-contrast` (pass).
+
+Manual:
+- 1 `h1` ("Ahnaf Labib"). Heading order: H1 Ahnaf Labib → H2 Rolls → H3 Light / Street / Stage / Portrait → H2 Music
+  → H3 Drafts → H2 Say hello. No skipped levels.
+- 23/23 `img` have non-empty alt; 24/24 buttons and 15/15 links have an accessible name; all 3 iframes have a title.
+- Focus visible: every focusable in the main document (42) was focused after a keyboard Tab. Nav links, logo and
+  persona toggle show a ring (box-shadow). Hero CTA, roll frames, Instagram link and contact links show the 2 px accent
+  outline. **Ten had only the browser's default `outline: auto`**: the `@labib.onrecord →` link, the three cover title
+  links, and each draft's play button and seek slider. Chrome draws that as a thin white/dark ring that is visible on
+  `#0e0d0b` (see `v2-focus-before-play.png`, `v2-focus-before-cover-link.png`), but it does not match the rest of the
+  page and varies by browser. **Fixed** (class-only): `focus-visible:outline-2 focus-visible:outline-offset-{2,4}
+  focus-visible:outline-accent` on those links (`CreativeMusic.tsx`) and controls (`DraftPlayer.tsx`). Re-run: 0
+  focusables without the ring/outline (`v2-focus-after-*.png`).
+- Reduced motion (`reducedMotion: "reduce"` context):
+
+  | | No preference | Reduced |
+  |---|---|---|
+  | Hero frames `animation-name/duration` | frame 1 `none` (after the LCP fix), frames 2–5 `settle/0.6s` | all `none` |
+  | Roll image `transition-duration` | 0.5 s | ~0 (1e-05 s) |
+  | Roll frame hover `scale` | 1.02 | 1 |
+  | Lightbox dialog `transition-duration` | 0.5 s | ~0 (1e-05 s) |
+
+### 11. taste-skill checker
+
+`consistency.mjs` with the Task 8 flags (`--widths 1440,1024,820,768,390 --rhythm-widths 1440,820,768,390
+--page service --category "photographs and music" --primary "See the rolls"`), run after the fixes below were built.
+Exit 1, raw **170 FAIL / 47 WARN** (Task 9: 148 / 27 on the paper page). By width: 1440 43, the rest in the
+`consistency.txt` header lines. Grouped by check and distinct message:
+
+**Real or partly real (none fixed in code; follow-ups)**
+
+| Check | Finding (verbatim) | Verdict |
+|---|---|---|
+| contrast (1440, 1024) | "body text over a picture reads at 3.5:1 at its worst tenth (needs 4.5:1)" on `a.justify-self-end > span.text-accent` "↓" | **Partly real.** The accent ↓ in the hero CTA chip (`lg:bg-bg/75` over frame 5's light cardigan). The glyph is `aria-hidden` and the link text "See the rolls" (ink) passes; even `bg-bg/85` would only reach ≈3.3–3.6:1 over that photo. Follow-up: make the chip solid `lg:bg-bg` (accent on bg 5.01) or the arrow `text-ink`. Left as a design call. |
+| heading-scale (all) | "h2 headings in 3 sizes, 32px ("Music") to 80px (x2.50)"; at 390 "an h3 at 32px, as large as the smallest h2 (32px)"; at 768/820 "an h2 at 80px, as large as the h1 (72px) or larger" | **Partly real.** "Say hello." at 5rem is the v2 spec. But the Music h2 (2rem) is smaller than the Rolls h2 (2.5/3rem) and equal to the roll h3s (2rem) — an inconsistency Task 12 introduced. Follow-up: give Music the Rolls h2 size. |
+| empty-visual (390, slow line) | "the frame of ahnafLabib-artist.jpg is still empty 1 s after a tap … the file is 91 KB, 800px wide for a 128px frame" | **Real, perf.** Same headshot item as Task 8/9. Follow-up: a 256 px variant for the sticker. |
+
+**False positives**
+
+| Check (raw) | Finding (verbatim, first instance) | Reason |
+|---|---|---|
+| cut-text (3) | "1 line of its text sit where the box has no visible edge (its fill matches what is behind it there)" (hero name strip) | The strip is `bg-bg/85` on the page ground by design; the mono line sits inside the strip's padding, nothing is clipped (crop `1440-01-cut-text.jpg`). |
+| hero-screen (1440) | ""Ahnaf Labib" starts at 64px, under the 65px nav" | The h1 box starts at 76; the 64 is the text range's content area, which a 7rem line at `leading-[0.92]` pushes above the line box. Visible caps start well below the nav. |
+| hero-screen (390/768/820) | "the hero ends at 1895px on a 1180px screen, 715px below the fold" | Below lg the wall stacks by spec. |
+| tilt (5), off-grid (5) | "rotated -4.0°"; "left edge at 140px, 4px off the page margin at 144px" (statement sticker) | The −4° sticker is the v2 spec; its rotated bounding box is what sits 4 px off. |
+| text-contrast (5) | "#0e0d0b on #0e0d0b reads 1:1" (PersonaToggle "Artist") | Known: the active pill is a separate layer; the real pair is accent-ink on accent, 5.01:1. |
+| scroll-reveal (5) | "3 parts of this section animate in when scrolled into view" (cover slots) | The lazy embed swap (empty box → iframe). No reveal animation. |
+| no-visual (5), text-only (5), cta (8), copy-headline (2), copy-headings (1) | e.g. "the closing section is only text", "the last section before the footer ends with no button", ""Ahnaf Labib" does not name what is sold" | Landing-page rules. v2 spec: contact is a headline plus mono links, "no button"; the h1 is the name; the hero action is the mono link. |
+| links (1) | ""Ahnaf Labib." goes to "#", nowhere" | Shared navbar logo, scrolls to top. |
+| row-lines (12) | "a row of 3 items: its items are 800/800/239px tall"; "its last item ends at 1076px, the container's right line at 1296px"; "a sideways scroller: 160px of it hidden behind overflow-x: auto" | The asymmetric wall and the snap strip are both the v2 spec. |
+| top-stagger (2) | "2 boxes side by side start at different heights (+0, +54px)" | CSS-columns masonry, as in Task 8. |
+| section-height (31), section-air (9), one-section (16), one-heading (2), container-edges (32), split-pair (9) | e.g. "the section is 2632px tall (2.9 screens)", "a rule (<hr>) between the section's content", "a band: a box 80% of the section wide on a ground of its own" (drafts deck), "the section needs exactly one in-flow child .wrap" | The kit's screen-grid rhythm and markup conventions, as listed in Task 8. The `<hr>` is the roll meta rule and the deck card is the v2 spec. |
+
+`check.mjs --sizes 1440x900,1024x768,768x1024,390x844` crashes as in Task 8 (`TypeError: r.sections is not iterable`,
+check.mjs:174). With `--json`: at all four sizes `{"rule":"container","where":"page","detail":"no .wrap"}` and
+`overflowX: false`. Not applicable to this markup; the one real measurement (no horizontal overflow) passes.
+
+### 12. Lighthouse mobile ×3
+
+`npx --yes lighthouse@latest http://localhost:4175/artist.html --form-factor=mobile --chrome-flags="--headless --no-sandbox"
+--chrome-path=/opt/pw-browsers/chromium --only-categories=performance,accessibility,best-practices --output=json --quiet`.
+Lighthouse 13.6.0 still rejects `--preset=mobile` ("Choices: perf, experimental, desktop"); `--form-factor=mobile`
+is the same default mobile config.
+
+LCP element: the large wall frame, `<img src="/gallery/r4-02.jpg" fetchpriority="high">` ("Two friends in dark coats
+standing in a doorway at night."). Request is discoverable (preloaded), not lazy, prioritised.
+
+**Before (85e812f):**
+
+| Run | Perf | A11y | BP | FCP | LCP | TBT | CLS | SI | LCP render delay |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 79 | 100 | 100 | 0.8 s | 5.2 s | 130 ms | 0 | 2.9 s | 601 ms |
+| 2 | 80 | 100 | 100 | 0.8 s | 5.2 s | 30 ms | 0 | 2.7 s | 527 ms |
+| 3 | 80 | 100 | 100 | 0.8 s | 5.3 s | 30 ms | 0 | 2.6 s | 493 ms |
+
+Median **80**. The image itself arrived in ~40–80 ms; the LCP breakdown's element render delay (~500–600 ms) matches
+the 600 ms `settle` animation, which starts the LCP image at opacity 0. **The entrance fade was penalised.**
+
+**Fix (trivially safe):** the large frame (slot 0) no longer gets `animate-settle` or a delay; frames 2–5 keep the
+60 ms stagger and `motion-reduce:animate-none`. Test updated (`CreativeHero.test.tsx`).
+
+**After:**
+
+| Run | Perf | A11y | BP | FCP | LCP | TBT | CLS | SI | LCP render delay |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 84 | 100 | 100 | 0.8 s | 4.5 s | 30 ms | 0 | 2.7 s | 434 ms |
+| 2 | 86 | 100 | 100 | 0.8 s | 4.2 s | 30 ms | 0 | 2.7 s | 449 ms |
+| 3 | 85 | 100 | 100 | 0.8 s | 4.3 s | 30 ms | 0 | 2.6 s | 444 ms |
+
+Median **Performance 85** (still under 90), **Accessibility 100**, **Best practices 100**.
+
+Top opportunities (after):
+1. **LCP render delay ~440 ms** remains: the persona `motion.div` in `App.tsx` starts at opacity 0 and fades in (Task 9's
+   "largest remaining lever"). Skipping that fade on first load (`initial={false}`), keeping it on persona flips, is a
+   design call and was not applied.
+2. **Image delivery, est. 586 KiB.** `r3-01.jpg` (1520 w, 189 KB) is fetched for a 184×245 cell on mobile because slot 2/3
+   `sizes` is `120vw` below lg (chosen in Task 11 for DPR 2 object-cover); `r4-02.jpg` (the LCP frame) has no `srcset`
+   (1600 w for a 380 px cell); the 800 px headshot is shown at 120–128 px; no WebP/AVIF.
+3. **Unused JavaScript, 45 KiB** in the shared chunk (est. 300 ms LCP), mostly framer-motion. Render-blocking app CSS:
+   est. 90 ms FCP.
+
+Also flagged (not scored): bf-cache, "The page has an unload handler in a sub frame" (the Instagram embeds).
+
+### 13. Contrast
+
+`src/theme.test.ts` still parses the creative block and asserts the v2 tokens (`bg #0e0d0b` … `accent-ink #0e0d0b`)
+and the three ≥ 4.5:1 pairs; it passes. Spot checks (WCAG formula):
+
+| Pair | Ratio |
+|---|---|
+| `ink-faint #8e8477` on `bg #0e0d0b` | **5.29** |
+| `accent #e0522f` on `bg` | **5.01** |
+| `accent-ink #0e0d0b` on `accent` | 5.01 |
+| `ink-faint` on `surface-2 #1f1c19` (drafts deck) | 4.62 |
+| `ink-soft #c9c1b3` on `surface-2` | 9.50 |
+| Hero strip, theoretical worst case (`bg/85` over pure white → `#32312f`): ink-soft mono line / ink h1 | 7.25 / 11.19 |
+| Hero strip, measured (text hidden, lightest rendered strip pixel): 1440 `rgb(40,39,36)` | ink-soft 8.37, ink 12.92 |
+| Hero strip, measured: 390 `rgb(24,22,20)` (strip sits above the photo) | ink-soft 10.11, ink 15.61 |
+
+At 1440 the strip overlaps the large frame by 32 px; the photo under it is dark.
+
+### Spec drift
+
+`docs/superpowers/specs/2026-11-05-artist-page-redesign.md`, Revision v2 → Rolls: `4 rolls · 15 frames` →
+`4 rolls · 17 frames` (the page renders "4 rolls · 17 frames"; R4 gained the portraits in Task 11). Nothing else changed.
+
+### Fixes in this commit
+
+- `CreativeHero.tsx`: the large (LCP) wall frame paints at once; the other four keep the staggered `settle`.
+  `CreativeHero.test.tsx` updated to match.
+- `CreativeMusic.tsx`: accent focus outline on the `@labib.onrecord` link and the cover title links.
+- `DraftPlayer.tsx`: accent focus outline on the play button and the seek slider.
+- Spec: 15 → 17 frames.
+
+### Follow-ups (not fixed)
+
+1. Persona fade on first load holds LCP ~440 ms (`initial={false}` on first mount) — biggest lever to reach 90.
+2. Image delivery: `srcset` for the LCP frame; revisit slot 2/3 `120vw` sizes below lg; a small headshot variant for
+   the 120 px sticker; consider WebP/AVIF in `prepare-media`.
+3. Hero CTA ↓ glyph over a light photo at 3.5:1 (decorative, `aria-hidden`): solid chip or ink arrow.
+4. Music h2 is 2rem, smaller than the Rolls h2 and equal to the roll h3s; align heading sizes.
+5. 45 KiB unused JS (framer-motion in the shared chunk).
+
+### Final checks
+
+On the final tree: `npm test` 25 files, **234/234 passed**; `npx tsc -b` clean; `npm run build` succeeded
+(main chunk 110.08 KiB gzip).

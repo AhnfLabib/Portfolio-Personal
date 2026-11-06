@@ -305,7 +305,7 @@ pull-quote at 2.75rem; below, three mono pills `35mm` `Indianapolis`
 `slide guitar` (from `creative.tags`). Statement text unchanged.
 
 ### Rolls
-Section heading `Rolls` with `4 rolls · 15 frames` mono. Each roll: a
+Section heading `Rolls` with `4 rolls · 17 frames` mono. Each roll: a
 two-column layout — left column `sticky top-24` with `R1` mono, title in
 Fraunces 2rem, `5 frames` mono, a thin rule; right column the CSS-columns
 contact sheet (as built). Frames with a baked-in white film border
