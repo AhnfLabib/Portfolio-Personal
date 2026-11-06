@@ -390,3 +390,19 @@ git commit -m "docs(artist): browser and taste verification report"
 - [ ] **Step 5: Hero discovery.** `index.html`: `<link rel="preload" as="image" href="/gallery/hero.jpg" fetchpriority="high">` (20 KB; acceptable on the Dev persona too).
 - [ ] **Step 6: Audio.** `DraftPlayer`: `preload="none"` (duration comes from `content.ts`).
 - [ ] **Step 7: Re-verify.** Re-run the Task 8 checks 7–9 (a11y pass, consistency.mjs contrast/alignment rows, Lighthouse ×3) and append results to the verification report. Commit.
+
+---
+
+## v2 (dark editorial) — see spec "Revision v2"
+
+### Task 10: Dark tokens, cropped frames, tags
+- `src/index.css` creative block → the v2 palette; `src/theme.test.ts` thresholds hold (update expected values). `scripts/prepare-media.mjs`: auto-crop near-white borders (rows/cols with mean luminance > 235 at the edges, inset 2 px) before resize; regenerate `r1-02`, `r1-04` (+800 variants) and the manifest; test on a synthetic bordered image. `content.ts`: `creative.tags = ["35mm","Indianapolis","slide guitar"]`, hero line `Indianapolis, IN · 35mm & digital · 2024–26`, `now` mentions Indianapolis. Tests, build, commit.
+
+### Task 11: Hero photo wall
+- `CreativeHero.tsx` rewritten per the v2 spec; `creative.hero.wall: Frame[]` (5 frames; placeholder picks until the owner's portraits arrive) replaces `hero.image`; `index.html` preload switches to the large frame; entrance animation (CSS, `motion-reduce:` off); tests (5 frames, h1, mono line, link; reduced motion class). Build, screenshots 1440/390, commit.
+
+### Task 12: Statement + Rolls sticky layout + Music strip + Contact
+- `CreativeStatement.tsx` (sticker + pull-quote + pills), `CreativeRolls.tsx` (section heading + sticky meta column per roll; contact sheet unchanged), `CreativeMusic.tsx` (snap strip + deck card), `CreativeContact.tsx` (big headline + mono link row). Tests updated. Build, screenshots, commit.
+
+### Task 13: Re-verification
+- Re-run Task 8's checks 1–9 against v2; append to the report; fix only trivially-safe items; commit.
