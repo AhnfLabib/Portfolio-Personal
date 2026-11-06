@@ -49,9 +49,10 @@ describe("creative content model", () => {
   });
 
   it("carries the spec copy", () => {
-    expect(creative.hero.line).toBe("Photographs and music. Greencastle, Indiana · Dhaka.");
+    expect(creative.hero.line).toBe("Indianapolis, IN · 35mm & digital · 2024–26");
     expect(creative.hero.cta).toBe("See the rolls");
-    expect(creative.now).toBe("shooting on 35mm around Greencastle · learning slide guitar");
+    expect(creative.now).toBe("shooting on 35mm around Indianapolis · learning slide guitar");
+    expect(creative.tags).toEqual(["35mm", "Indianapolis", "slide guitar"]);
     expect(creative.music.handle).toBe("@labib.onrecord");
     expect(creative.contact.headline).toBe("Say hello.");
   });

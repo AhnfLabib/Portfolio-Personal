@@ -276,6 +276,8 @@ export interface Draft {
 export const creative: {
   hero: { image: Frame; line: string; cta: string };
   statement: string;
+  /** Mono pills under the statement. */
+  tags: string[];
   now: string;
   rolls: Roll[];
   music: {
@@ -295,12 +297,13 @@ export const creative: {
       height: 1125,
       alt: "A total solar eclipse at the diamond-ring moment.",
     },
-    line: "Photographs and music. Greencastle, Indiana · Dhaka.",
+    line: "Indianapolis, IN · 35mm & digital · 2024–26",
     cta: "See the rolls",
   },
   statement:
     "I photograph what light does when nobody is posing: rooms at the end of the day, stages lit red, a street in fog, one eclipse. Between frames I play guitar.",
-  now: "shooting on 35mm around Greencastle · learning slide guitar",
+  tags: ["35mm", "Indianapolis", "slide guitar"],
+  now: "shooting on 35mm around Indianapolis · learning slide guitar",
   rolls: [
     {
       id: "light",
@@ -315,7 +318,7 @@ export const creative: {
         {
           src: "/gallery/r1-02.jpg",
           width: 1600,
-          height: 1287,
+          height: 1226,
           alt: "A living room with a TV at golden hour, sunlight striping the wall.",
         },
         {
@@ -327,7 +330,7 @@ export const creative: {
         {
           src: "/gallery/r1-04.jpg",
           width: 1600,
-          height: 1287,
+          height: 1226,
           alt: "A dim living room with a glass coffee table and a checkered rug.",
         },
         {

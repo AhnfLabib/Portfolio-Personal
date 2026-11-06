@@ -50,3 +50,21 @@ describe("creative persona contrast (WCAG AA, normal text)", () => {
     expect(contrast(accentInk, accent)).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+describe("creative persona palette (spec v2: dark editorial)", () => {
+  it("uses the v2 tokens", () => {
+    const expected = {
+      bg: "#0e0d0b",
+      surface: "#161412",
+      "surface-2": "#1f1c19",
+      line: "#2a2622",
+      ink: "#f3eee4",
+      "ink-soft": "#c9c1b3",
+      "ink-faint": "#8e8477",
+      accent: "#e0522f",
+      "accent-soft": "#f0663c",
+      "accent-ink": "#0e0d0b",
+    };
+    for (const [name, hex] of Object.entries(expected)) expect(creativeToken(name).toLowerCase()).toBe(hex);
+  });
+});

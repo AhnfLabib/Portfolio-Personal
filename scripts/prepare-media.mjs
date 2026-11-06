@@ -3,7 +3,8 @@
 //
 //   node scripts/prepare-media.mjs --photos <dir> --audio <dir> --out public
 //
-// Turns the supplied original photographs into public/gallery/*.jpg (hero at
+// Crops any baked-in near-white film border first (see detectBorder), then
+// turns the supplied original photographs into public/gallery/*.jpg (hero at
 // 2000 px and roll frames at 1600 px on the long edge, plus -800 grid variants
 // at 800 px on the long edge; EXIF stripped,
 // progressive mozjpeg), transcodes the draft recordings to
@@ -106,11 +107,75 @@ export function buildManifest(entries) {
   return { hero, rolls, drafts };
 }
 
+/** Baked-in film borders: an edge row/column whose mean luminance is above
+ * BORDER_LUMA counts as border. Cropping needs at least BORDER_MIN px of it on
+ * every side (so ordinary photos with a bright sky edge are untouched), then
+ * insets BORDER_INSET px further so no light seam survives. */
+export const BORDER_LUMA = 235;
+export const BORDER_MIN = 8;
+export const BORDER_INSET = 2;
+/** Scanned film can carry a 1-px darker seam at the very edge outside the
+ * white border (r1-02/r1-04 do on their bottom row); skip up to this many. */
+export const BORDER_SEAM = 3;
+/** A scanned border fades into the picture over a few px rather than
+ * stopping on a hard edge; the inset is measured from the end of that fade:
+ * lines that keep getting darker by at least BORDER_RAMP_STEP per px, for at
+ * most BORDER_RAMP_MAX px. */
+export const BORDER_RAMP_MAX = 10;
+export const BORDER_RAMP_STEP = 4;
+
+/**
+ * Given single-channel raw pixels, return the {left, top, width, height}
+ * rectangle inside a near-white border, or null when there is no border on
+ * all four sides.
+ */
+export function detectBorder({ data, width, height }) {
+  const rowMean = (y) => {
+    let sum = 0;
+    for (let x = 0; x < width; x++) sum += data[y * width + x];
+    return sum / width;
+  };
+  const colMean = (x) => {
+    let sum = 0;
+    for (let y = 0; y < height; y++) sum += data[y * width + x];
+    return sum / height;
+  };
+  // Border thickness along one side: skip up to BORDER_SEAM outermost lines
+  // that are not bright, count the run of bright ones, then the fade.
+  const side = (mean, max) => {
+    let i = 0;
+    while (i < BORDER_SEAM && i < max && mean(i) <= BORDER_LUMA) i++;
+    if (i >= max || mean(i) <= BORDER_LUMA) return 0;
+    while (i < max && mean(i) > BORDER_LUMA) i++;
+    for (let k = 0; k < BORDER_RAMP_MAX && i + 1 < max && mean(i) - mean(i + 1) >= BORDER_RAMP_STEP; k++) i++;
+    return i;
+  };
+  const top = side(rowMean, height);
+  const bottom = side((i) => rowMean(height - 1 - i), height - top);
+  const left = side(colMean, width);
+  const right = side((i) => colMean(width - 1 - i), width - left);
+  if (Math.min(top, bottom, left, right) < BORDER_MIN) return null;
+  const rect = {
+    left: left + BORDER_INSET,
+    top: top + BORDER_INSET,
+    width: width - left - right - 2 * BORDER_INSET,
+    height: height - top - bottom - 2 * BORDER_INSET,
+  };
+  return rect.width > 0 && rect.height > 0 ? rect : null;
+}
+
+/** The crop rectangle for `src` (after EXIF orientation), or null. */
+export async function borderCrop(sharp, src) {
+  const { data, info } = await sharp(src).rotate().removeAlpha().greyscale().raw().toBuffer({ resolveWithObject: true });
+  return detectBorder({ data, width: info.width, height: info.height });
+}
+
 // Every variant is capped on its long edge (spec: "1600 px on the long edge"),
 // so -800 is always half of the 1600 variant, portrait or landscape.
 const longEdge = (px) => ({ width: px, height: px, fit: "inside", withoutEnlargement: true });
 
 async function encode(sharp, src, edge, budgets, minEdge = edge) {
+  const crop = await borderCrop(sharp, src);
   // Try each budget in turn (strict first); within one, step quality down.
   // If even the last budget cannot be met at Q_MIN, step the long edge down
   // (never below minEdge) rather than drop quality further: a smaller clean
@@ -119,8 +184,9 @@ async function encode(sharp, src, edge, budgets, minEdge = edge) {
     const tryBudgets = e === edge ? budgets : budgets.slice(-1);
     for (const budget of tryBudgets) {
       for (let q = Q_START; q >= Q_MIN; q -= Q_STEP) {
-        const { data, info } = await sharp(src)
-          .rotate()
+        let img = sharp(src).rotate();
+        if (crop) img = img.extract(crop);
+        const { data, info } = await img
           .resize(longEdge(e))
           .jpeg({ quality: q, progressive: true, mozjpeg: true })
           .toBuffer({ resolveWithObject: true });

@@ -27,18 +27,18 @@
   --color-accent-ink: #0a0d13;
 }
 
-/* CREATIVE persona — warm paper, burnt orange. Overrides the raw properties. */
+/* CREATIVE persona — dark editorial, burnt orange. Overrides the raw properties. */
 html[data-persona="creative"] {
-  --color-bg: #f6f1e7;
-  --color-surface: #fffcf5;
-  --color-surface-2: #efe7d8;
-  --color-line: #e0d5c0;
-  --color-ink: #1d1a16;
-  --color-ink-soft: #5c554a;
-  --color-ink-faint: #6b6253;
-  --color-accent: #b9371a;
-  --color-accent-soft: #d04a2a;
-  --color-accent-ink: #fffcf5;
+  --color-bg: #0e0d0b;
+  --color-surface: #161412;
+  --color-surface-2: #1f1c19;
+  --color-line: #2a2622;
+  --color-ink: #f3eee4;
+  --color-ink-soft: #c9c1b3;
+  --color-ink-faint: #8e8477;
+  --color-accent: #e0522f;
+  --color-accent-soft: #f0663c;
+  --color-accent-ink: #0e0d0b;
 }
 
 html {

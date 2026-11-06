@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { it, expect } from "vitest";
-import { PHOTO_MAP, ALT, DRAFTS, slugify, buildManifest, findDraftSource, parseArgs } from "./prepare-media.mjs";
+import sharp from "sharp";
+import { PHOTO_MAP, ALT, DRAFTS, slugify, buildManifest, findDraftSource, parseArgs, borderCrop } from "./prepare-media.mjs";
 
 // The brief said 15 here, but its own roll lists (5+4+4+1) and the spec
 // ("15 are used" = hero + 14) give 14 roll frames.
@@ -72,4 +73,58 @@ it("parseArgs rejects a missing value or a flag in its place, and missing folder
   expect(() => parseArgs(["--photos", "--audio", here, "--out", "public"])).toThrow(/--photos/);
   expect(() => parseArgs(["--photos", here, "--audio", here])).toThrow(/--out/);
   expect(() => parseArgs(["--photos", "/nonexistent-dir-xyz", "--audio", here, "--out", "public"])).toThrow(/not a folder/);
+});
+
+// A 400x300 canvas: grey (128) image inside a 40 px white border.
+async function bordered({ width = 400, height = 300, border = 40 } = {}) {
+  const inner = await sharp({
+    create: { width: width - 2 * border, height: height - 2 * border, channels: 3, background: { r: 128, g: 128, b: 128 } },
+  })
+    .png()
+    .toBuffer();
+  return sharp({ create: { width, height, channels: 3, background: { r: 255, g: 255, b: 255 } } })
+    .composite([{ input: inner, left: border, top: border }])
+    .png()
+    .toBuffer();
+}
+
+it("borderCrop finds the image inside a white border, inset 2 px", async () => {
+  // inner 320x220 at (40,40), minus 2 px on each side
+  expect(await borderCrop(sharp, await bordered())).toEqual({ left: 42, top: 42, width: 316, height: 216 });
+});
+
+it("borderCrop skips a thin dark seam at the very edge of a scan", async () => {
+  const seamed = await sharp(await bordered())
+    .composite([{ input: { create: { width: 400, height: 1, channels: 3, background: "#606060" } }, left: 0, top: 299 }])
+    .png()
+    .toBuffer();
+  expect(await borderCrop(sharp, seamed)).toEqual({ left: 42, top: 42, width: 316, height: 216 });
+});
+
+it("borderCrop measures the inset from the end of a soft (scanned) border edge", async () => {
+  const soft = await sharp(await bordered()).blur(2).png().toBuffer();
+  const crop = await borderCrop(sharp, soft);
+  expect(crop).not.toBeNull();
+  // Past the fade, so no light seam is left on any edge of the result.
+  const { data, info } = await sharp(soft).extract(crop).greyscale().raw().toBuffer({ resolveWithObject: true });
+  const at = (x, y) => data[y * info.width + x];
+  const mid = { x: info.width >> 1, y: info.height >> 1 };
+  for (const v of [at(mid.x, 0), at(mid.x, info.height - 1), at(0, mid.y), at(info.width - 1, mid.y)]) {
+    expect(v).toBeLessThan(140);
+  }
+  expect(crop.width).toBeGreaterThanOrEqual(300);
+});
+
+it("borderCrop leaves photos with no (or a thin) border alone", async () => {
+  const plain = await sharp({ create: { width: 400, height: 300, channels: 3, background: { r: 128, g: 128, b: 128 } } })
+    .png()
+    .toBuffer();
+  expect(await borderCrop(sharp, plain)).toBeNull();
+  expect(await borderCrop(sharp, await bordered({ border: 6 }))).toBeNull();
+  // A bright sky along one edge only is not a border.
+  const sky = await sharp(plain)
+    .composite([{ input: { create: { width: 400, height: 60, channels: 3, background: "#ffffff" } }, left: 0, top: 0 }])
+    .png()
+    .toBuffer();
+  expect(await borderCrop(sharp, sky)).toBeNull();
 });
