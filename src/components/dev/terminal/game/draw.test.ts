@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { CAT } from "../sprites";
 import { WORLD, createGame, type GameState } from "./engine";
-import { OBSTACLE_SIZE } from "./gameSprites";
+import { DIGITS, OBSTACLE_SIZE, STARS } from "./gameSprites";
 import { render, resolvePalette, type Colours } from "./draw";
 
 type Rect = { x: number; y: number; w: number; h: number; fill: string };
@@ -70,7 +70,7 @@ describe("render", () => {
     render(ctx, s, assets());
     const top = 80 - CAT.default.hop.h;
     expect(rects.some((r) => r.x >= WORLD.catX && r.x < WORLD.catX + 24 && r.y >= top && r.y < 80)).toBe(true);
-    expect(rects.some((r) => r.x >= WORLD.catX && r.x < WORLD.catX + 24 && r.y >= 80 && r.y < WORLD.ground)).toBe(false);
+    expect(rects.some((r) => r.x >= WORLD.catX && r.x < WORLD.catX + 24 && r.y >= 80 && r.y < WORLD.ground && r.y !== 90)).toBe(false); // y 90: the horizon dots
   });
 
   it("shakes on game over, but not under reduced motion", () => {
@@ -85,18 +85,78 @@ describe("render", () => {
     expect(still.raw.translate).not.toHaveBeenCalled();
   });
 
-  it("draws the score top-right, and skips the flash under reduced motion", () => {
-    const plain = recordingContext();
-    render(plain.ctx, scene({ score: 42 }), assets());
-    expect(plain.raw.fillText).toHaveBeenCalledWith("00042", expect.any(Number), expect.any(Number));
+  /** The score's area: five 3×5 digits at scale 2, right-aligned 4 px from the top-right. */
+  const SCORE_BOX = { x: WORLD.w - 4 - (5 * 7 - 1), y: 4, w: 5 * 7 - 1, h: 10 };
+  const scoreRects = (rects: Rect[]) => rects.filter((r) => inside(r, SCORE_BOX) && r.fill !== colours.b);
 
-    // just past a hundred, on an "off" beat of the flash: hidden normally, always shown under reduced motion
-    const flash = recordingContext();
-    render(flash.ctx, scene({ score: 200 }), assets({ frame: 4 }));
-    expect(flash.raw.fillText).not.toHaveBeenCalled();
+  it("draws the score top-right in pixel digits, never with text", () => {
+    const { ctx, rects, raw } = recordingContext();
+    render(ctx, scene({ score: 42 }), assets());
+    expect(raw.fillText).not.toHaveBeenCalled();
+    const painted = scoreRects(rects);
+    // "00042": the four zeros' and the 2's lit cells, each 2×2 world px (runs are merged along a row)
+    const cells = (d: string) => DIGITS[d].join("").replace(/\./g, "").length;
+    const area = painted.reduce((sum, r) => sum + r.w * r.h, 0);
+    expect(area).toBe(4 * (3 * cells("0") + cells("4") + cells("2")));
+    for (const r of painted) expect(r.fill).toBe(colours.s);
+    // the rightmost digit ends 4 px from the edge
+    expect(Math.max(...painted.map((r) => r.x + r.w))).toBe(WORLD.w - 4);
+  });
+
+  it("flashes the score in the accent after each hundred, on a clock (not the frame rate); not under reduced motion", () => {
+    const on = recordingContext();
+    render(on.ctx, scene({ score: 200, t: 0.05 }), assets());
+    expect(scoreRects(on.rects).length).toBeGreaterThan(0);
+    for (const r of scoreRects(on.rects)) expect(r.fill).toBe(colours.a);
+
+    // the same moment at a different rAF tick count looks the same
+    const sameT = recordingContext();
+    render(sameT.ctx, scene({ score: 200, t: 0.05 }), assets({ frame: 7 }));
+    expect(sameT.rects).toEqual(on.rects);
+
+    const off = recordingContext();
+    render(off.ctx, scene({ score: 200, t: 0.2 }), assets());
+    expect(scoreRects(off.rects)).toHaveLength(0);
+
     const reduced = recordingContext();
-    render(reduced.ctx, scene({ score: 200 }), assets({ frame: 4, reduceMotion: true }));
-    expect(reduced.raw.fillText).toHaveBeenCalledWith("00200", expect.any(Number), expect.any(Number));
+    render(reduced.ctx, scene({ score: 200, t: 0.2 }), assets({ reduceMotion: true }));
+    expect(scoreRects(reduced.rects).length).toBeGreaterThan(0);
+    for (const r of scoreRects(reduced.rects)) expect(r.fill).toBe(colours.s);
+  });
+
+  it("paints the stars as single faint pixels, fixed in place", () => {
+    expect(STARS).toHaveLength(10);
+    for (const s of [scene(), scene({ distance: 500, t: 3 })]) {
+      const { ctx, rects } = recordingContext();
+      render(ctx, s, assets());
+      for (const [x, y] of STARS) {
+        expect(y).toBeGreaterThanOrEqual(10);
+        expect(y).toBeLessThanOrEqual(60);
+        expect(rects.some((r) => r.x === x && r.y === y && r.w === 1 && r.h === 1 && r.fill === colours.f)).toBe(true);
+      }
+    }
+  });
+
+  it("draws a sparse faint horizon at y 90 that scrolls at a quarter of the distance", () => {
+    const at = (distance: number) => {
+      const { ctx, rects } = recordingContext();
+      render(ctx, scene({ distance, obstacles: [] }), assets());
+      return rects.filter((r) => r.y === 90 && r.fill === colours.f).map((r) => r.x);
+    };
+    const start = at(0);
+    expect(start.length).toBeGreaterThan(5);
+    expect(start.length).toBeLessThan(WORLD.w / 3); // sparse
+    // 8 px run → the horizon moved 2 px left
+    expect(at(8).map((x) => x + 2).filter((x) => x < WORLD.w)).toEqual(start.filter((x) => x >= 2));
+    expect(at(8)).not.toEqual(start);
+  });
+
+  it("the shake jitter follows the game clock, not the frame count", () => {
+    const a = recordingContext();
+    render(a.ctx, scene({ over: true, shake: 0.1, t: 1 }), assets({ frame: 1 }));
+    const b = recordingContext();
+    render(b.ctx, scene({ over: true, shake: 0.1, t: 1 }), assets({ frame: 2 }));
+    expect(a.raw.translate.mock.calls).toEqual(b.raw.translate.mock.calls);
   });
 });
 

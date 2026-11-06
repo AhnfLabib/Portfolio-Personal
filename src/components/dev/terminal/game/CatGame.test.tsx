@@ -205,6 +205,41 @@ describe("CatGame", () => {
     outside.remove();
   });
 
+  it("backdrop press keeps focus in the dialog; Escape still closes", () => {
+    stubCanvas();
+    const onClose = vi.fn();
+    const outside = document.createElement("button");
+    document.body.append(outside);
+    render(<Harness onClose={onClose} />);
+    const dialog = screen.getByRole("dialog");
+    const backdrop = dialog.parentElement!;
+    expect(fireEvent.pointerDown(backdrop)).toBe(false); // default prevented: focus never moves
+    expect(fireEvent.mouseDown(backdrop)).toBe(false);
+    expect(fireEvent.pointerDown(dialog)).toBe(true); // only the backdrop itself
+    expect(screen.getByRole("dialog")).toBeInTheDocument(); // a backdrop press does not close
+    expect(game()).toHaveFocus();
+    // whatever else moves focus out (a stray Shift+Tab into the page) is pulled back
+    act(() => outside.focus());
+    expect(game()).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // once closed the guard is gone: focus moves freely again
+    act(() => outside.focus());
+    expect(outside).toHaveFocus();
+    outside.remove();
+  });
+
+  it("closing still hands focus out of the dialog (the guard does not pull it back)", () => {
+    stubCanvas();
+    const back = document.createElement("button");
+    document.body.append(back);
+    render(<Harness returnTo={back} />);
+    fireEvent.click(screen.getByRole("button", { name: "close game" }));
+    expect(back).toHaveFocus();
+    back.remove();
+  });
+
   it("traps Tab between the close button and the game", () => {
     stubCanvas();
     render(<Harness />);

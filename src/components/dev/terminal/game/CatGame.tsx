@@ -53,6 +53,8 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
   const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const againRef = useRef<HTMLButtonElement>(null);
+  /** Set while closing, so the focus guard lets focus go back to the terminal. */
+  const closingRef = useRef(false);
   // Read once per open.
   const [initialBest] = useState(readBest);
   const [colours] = useState<Colours>(() => resolvePalette(paletteFrom ?? document.documentElement));
@@ -154,6 +156,18 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
     setPaused(false);
   };
 
+  // Belt and braces for the Tab trap: focus that lands outside the panel while open (a stray click or
+  // programmatic focus) is pulled back to the game, so Escape and the game keys keep working.
+  useEffect(() => {
+    const onFocusIn = (e: globalThis.FocusEvent) => {
+      if (closingRef.current) return;
+      const panel = panelRef.current;
+      if (panel && !panel.contains(e.target as Node | null)) wrapperRef.current?.focus({ preventScroll: true });
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, []);
+
   // A hidden tab pauses; coming back waits for the next input.
   useEffect(() => {
     const onVisibility = () => {
@@ -195,8 +209,10 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
 
   const close = () => {
     // Focus goes back first, so the terminal sees it land on the cat or its input, never on the page.
+    closingRef.current = true;
     if (returnFocusTo?.isConnected) returnFocusTo.focus({ preventScroll: true });
     onClose();
+    closingRef.current = false; // the unmount follows; a parent that keeps it open keeps the guard
   };
 
   const onPanelKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -227,6 +243,9 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
     e.preventDefault();
     press();
   };
+  const onBackdropPress = (e: { target: EventTarget; currentTarget: EventTarget; preventDefault(): void }) => {
+    if (e.target === e.currentTarget) e.preventDefault();
+  };
   const onStagePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if ((e.target as Element).closest("button")) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -234,7 +253,12 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 p-4 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-bg/70 p-4 backdrop-blur-sm"
+      // A press on the backdrop keeps focus where it is (and the dialog open): otherwise it would land on <body>.
+      onPointerDown={onBackdropPress}
+      onMouseDown={onBackdropPress}
+    >
       <div
         ref={panelRef}
         role="dialog"

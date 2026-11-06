@@ -1,6 +1,6 @@
 import { PALETTE, type Sprite } from "../sprites";
 import { WORLD, type GameState } from "./engine";
-import { BOX, CUCUMBER, GROUND_DASH } from "./gameSprites";
+import { BOX, CUCUMBER, DIGITS, GROUND_DASH, STARS } from "./gameSprites";
 
 /** Palette char → a real colour the canvas can paint with. */
 export type Colours = Record<string, string>;
@@ -11,7 +11,7 @@ export interface Assets {
   hop: Sprite;
   sleep: Sprite;
   colours: Colours;
-  /** A rAF tick counter: drives the shake jitter and the score flash. */
+  /** The rAF tick count. Timing (shake jitter, score flash) follows the game clock `s.t` instead, so every refresh rate looks the same. */
   frame: number;
   reduceMotion: boolean;
 }
@@ -54,35 +54,49 @@ function runsOf(grid: string[]): Run[] {
   return runs;
 }
 
-function paint(ctx: CanvasRenderingContext2D, grid: string[], left: number, top: number, colours: Colours) {
+/** Paint a grid at (left, top), each cell `scale` world px; `fill` paints every lit cell in one colour. */
+function paint(ctx: CanvasRenderingContext2D, grid: string[], left: number, top: number, colours: Colours, scale = 1, fill?: string) {
   const x0 = Math.round(left);
   const y0 = Math.round(top);
   for (const r of runsOf(grid)) {
-    ctx.fillStyle = colours[r.ch];
-    ctx.fillRect(x0 + r.x, y0 + r.y, r.w, 1);
+    ctx.fillStyle = fill ?? colours[r.ch];
+    ctx.fillRect(x0 + r.x * scale, y0 + r.y * scale, r.w * scale, scale);
   }
 }
 
 const frameAt = (sprite: Sprite, seconds: number) =>
   sprite.frames.length < 2 || !sprite.ms ? 0 : Math.floor((seconds * 1000) / sprite.ms) % sprite.frames.length;
 
-const SCORE_FONT = '8px "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace';
-/** The score flashes for this many points after each hundred. */
+/** The score flashes for this many points after each hundred, blinking at FLASH_HZ on the game clock. */
 const FLASH_POINTS = 3;
+const FLASH_HZ = 4;
+/** Shake jitter changes direction this often (game clock). */
+const SHAKE_HZ = 30;
+const DIGIT_SCALE = 2;
+const DIGIT_ADVANCE = 3 * DIGIT_SCALE + 1; // 6 px wide + a 1 px gap
+const SCORE_MARGIN = 4;
+const HORIZON_Y = 90;
+const HORIZON_EVERY = 8; // one dot every 8 px
+const HORIZON_PARALLAX = 0.25;
 
 /** Paint one frame of Cat Dash in logical 240×135 units (the caller applies the dpr transform). */
 export function render(ctx: CanvasRenderingContext2D, s: GameState, a: Assets): void {
-  const { colours, reduceMotion, frame } = a;
+  const { colours, reduceMotion } = a;
   const shaking = s.shake > 0 && !reduceMotion;
   if (shaking) {
     ctx.save();
-    const dx = frame % 2 === 0 ? 2 : -2;
-    const dy = frame % 3 === 0 ? 1 : -1;
-    ctx.translate(dx, dy);
+    const tick = Math.floor(s.t * SHAKE_HZ);
+    ctx.translate(tick % 2 === 0 ? 2 : -2, tick % 3 === 0 ? 1 : -1);
   }
 
   ctx.fillStyle = colours.b;
   ctx.fillRect(-4, -4, WORLD.w + 8, WORLD.h + 8);
+
+  // A still, faint sky: fixed stars, and a sparse horizon drifting at a quarter of the run's speed.
+  ctx.fillStyle = colours.f;
+  for (const [x, y] of STARS) ctx.fillRect(x, y, 1, 1);
+  const drift = (s.distance * HORIZON_PARALLAX) % HORIZON_EVERY;
+  for (let x = Math.round(HORIZON_EVERY - drift) % HORIZON_EVERY; x < WORLD.w; x += HORIZON_EVERY) ctx.fillRect(x, HORIZON_Y, 1, 1);
 
   // The floor and its scrolling dashes.
   ctx.fillStyle = colours.s;
@@ -100,12 +114,11 @@ export function render(ctx: CanvasRenderingContext2D, s: GameState, a: Assets): 
 
   // The score, top-right; it blinks for a moment after each hundred (not under reduced motion).
   const flashing = !reduceMotion && s.score >= 100 && s.score % 100 < FLASH_POINTS;
-  if (!flashing || Math.floor(frame / 4) % 2 === 0) {
-    ctx.fillStyle = flashing ? colours.a : colours.s;
-    ctx.font = SCORE_FONT;
-    ctx.textAlign = "right";
-    ctx.textBaseline = "top";
-    ctx.fillText(String(s.score).padStart(5, "0"), WORLD.w - 6, 6);
+  if (!flashing || Math.floor(s.t * FLASH_HZ * 2) % 2 === 0) {
+    const text = String(s.score).padStart(5, "0");
+    const left = WORLD.w - SCORE_MARGIN - (text.length * DIGIT_ADVANCE - 1);
+    const fill = flashing ? colours.a : colours.s;
+    [...text].forEach((d, i) => paint(ctx, DIGITS[d], left + i * DIGIT_ADVANCE, SCORE_MARGIN, colours, DIGIT_SCALE, fill));
   }
 
   if (shaking) ctx.restore();

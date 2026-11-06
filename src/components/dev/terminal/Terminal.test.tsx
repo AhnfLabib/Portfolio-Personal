@@ -544,6 +544,16 @@ describe("Terminal", () => {
       expect(t.card()).toHaveAttribute("data-active", "true");
       expect(t.input()).toHaveFocus();
       expect(document.body.style.overflow).toBe("");
+      // deactivation works again once the game is closed
+      const outside = document.createElement("button");
+      outside.textContent = "outside";
+      document.body.append(outside);
+      try {
+        await t.user.click(outside);
+        expect(t.card()).toHaveAttribute("data-active", "false");
+      } finally {
+        outside.remove();
+      }
     });
 
     it("opening from the cat menu leaves the terminal inactive", async () => {
