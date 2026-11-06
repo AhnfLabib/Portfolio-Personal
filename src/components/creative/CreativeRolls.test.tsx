@@ -31,7 +31,11 @@ describe("CreativeRolls", () => {
         expect(img).toHaveAttribute("loading", "lazy");
         expect(img).toHaveAttribute("decoding", "async");
         expect(img.getAttribute("srcset")).toBe(
-          `${frame.src.replace(/\.jpg$/, "-800.jpg")} ${w800(frame)}w, ${frame.src} ${frame.width}w`,
+          [
+            `${frame.src.replace(/\.jpg$/, "-800.jpg")} ${w800(frame)}w`,
+            ...(frame.variants ?? []).map((v) => `${v.src} ${v.width}w`),
+            `${frame.src} ${frame.width}w`,
+          ].join(", "),
         );
       }
     }

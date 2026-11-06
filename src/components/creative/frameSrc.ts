@@ -10,7 +10,12 @@ export function widthFor800(frame: Frame): number {
   return Math.round(800 * Math.min(1, frame.width / frame.height));
 }
 
-/** srcset with both files' real widths. */
+/** srcset with every file's real width: -800, any extra variants, full; sorted by width. */
 export function frameSrcSet(frame: Frame): string {
-  return `${srcFor800(frame.src)} ${widthFor800(frame)}w, ${frame.src} ${frame.width}w`;
+  const candidates = [
+    { src: srcFor800(frame.src), width: widthFor800(frame) },
+    ...(frame.variants ?? []),
+    { src: frame.src, width: frame.width },
+  ].sort((a, b) => a.width - b.width);
+  return candidates.map((c) => `${c.src} ${c.width}w`).join(", ");
 }

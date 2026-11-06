@@ -64,11 +64,13 @@ describe("CreativeHero", () => {
     expect(imgs[3]).toHaveAttribute("sizes", "(min-width: 1024px) 30vw, 120vw");
   });
 
-  it("gives the LCP frame a srcset and cell-width sizes matching the index.html preload", () => {
+  it("gives the LCP frame three candidates and cell-height sizes matching the index.html preload", () => {
     render(<CreativeHero />);
     const large = screen.getAllByRole("img")[0];
-    expect(large).toHaveAttribute("srcset", "/gallery/r4-02-800.jpg 800w, /gallery/r4-02.jpg 1600w");
-    expect(large).toHaveAttribute("sizes", "(min-width: 1024px) 50vw, 100vw");
+    const srcset = large.getAttribute("srcset") ?? "";
+    expect(srcset).toBe("/gallery/r4-02-800.jpg 800w, /gallery/r4-02-1200.jpg 1200w, /gallery/r4-02.jpg 1600w");
+    expect(srcset.split(", ")[1]).toBe("/gallery/r4-02-1200.jpg 1200w");
+    expect(large).toHaveAttribute("sizes", "(min-width: 1024px) 84vw, 165vw");
     expect(large).toHaveAttribute("fetchpriority", "high");
     const html = readFileSync(resolve(__dirname, "../../../index.html"), "utf8");
     const preload = html.match(/<link\s+rel="preload"[^>]*>/s)?.[0] ?? "";

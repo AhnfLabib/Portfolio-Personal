@@ -10,18 +10,23 @@ import { frameSrcSet } from "./frameSrc";
  *   4 small portrait — right column, bottom
  * Below lg (phones and portrait tablets): the large frame spans both columns,
  * the other four sit 2×2.
- * `sizes` describes the width the browser must fetch for object-cover. Slot 0
- * (the LCP frame) uses its cell width so phones take the 800w file; the
- * <link rel="preload"> in index.html carries the same srcset/sizes. Slots 2
- * and 3 hold 16:9 photos in portrait-shaped cells, so the fetch width follows
- * cell height × 1.78: below lg a ~50vw × 66.7vw cell needs ~118vw (120vw, so a
- * DPR2 phone picks the 1600w file); at lg+ a ~240px-tall cell needs ~425px
- * (30vw ≈ 432 at 1440).
+ * `sizes` describes the width the browser must fetch for object-cover. A 16:9
+ * photo in a cell taller than 16:9 is fitted by height, so the fetch width
+ * follows cell height × 1.78, not cell width.
+ * Slot 0 (the LCP frame, r4-02, 16:9) has 800/1200/1600w files: at lg+ its
+ * ~570 × 681 px cell at 1440 needs 681 × 1.78 ≈ 1212 px (84vw ≈ 1210); below lg
+ * the square phone cell is ~358 px tall at 390 (viewport − 32 px gutters), so
+ * it needs 358 × 1.78 ≈ 637 px (165vw ≈ 644 at 390). DPR1/1.5 devices land on
+ * the 1200w file instead of upscaling the 800w one. The <link rel="preload">
+ * in index.html carries the same srcset/sizes.
+ * Slots 2 and 3 hold 16:9 photos in portrait-shaped cells: below lg a ~50vw ×
+ * 66.7vw cell needs ~118vw (120vw, so a DPR2 phone picks the 1600w file); at
+ * lg+ a ~240px-tall cell needs ~425px (30vw ≈ 432 at 1440).
  * `focus` keeps each photo's subject in the crop.
  * `lazy` marks the two frames below the phone fold.
  */
 const SLOTS: { cell: string; sizes: string; focus: string; lazy?: boolean }[] = [
-  { cell: "aspect-square sm:aspect-[4/3] lg:aspect-auto lg:min-h-0 lg:flex-1", sizes: "(min-width: 1024px) 50vw, 100vw", focus: "55% 50%" },
+  { cell: "aspect-square sm:aspect-[4/3] lg:aspect-auto lg:min-h-0 lg:flex-1", sizes: "(min-width: 1024px) 84vw, 165vw", focus: "55% 50%" },
   { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-2 lg:row-span-3 lg:row-start-1", sizes: "(min-width: 1024px) 42vw, 50vw", focus: "50% 50%" },
   { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-3 lg:row-start-1", sizes: "(min-width: 1024px) 30vw, 120vw", focus: "55% 50%" },
   { cell: "aspect-[3/4] lg:aspect-auto lg:col-start-3 lg:row-start-2", sizes: "(min-width: 1024px) 30vw, 120vw", focus: "72% 50%", lazy: true },

@@ -1,7 +1,22 @@
 // @vitest-environment node
 import { it, expect } from "vitest";
 import sharp from "sharp";
-import { PHOTO_MAP, ALT, DRAFTS, slugify, buildManifest, findDraftSource, parseArgs, borderCrop } from "./prepare-media.mjs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  PHOTO_MAP,
+  ALT,
+  DRAFTS,
+  EXTRA_WIDTHS,
+  BUDGETS,
+  slugify,
+  buildManifest,
+  findDraftSource,
+  parseArgs,
+  borderCrop,
+  writeExtraVariants,
+} from "./prepare-media.mjs";
 
 // Light 5 + Street 4 + Stage 4 + Portrait 4 = 17 roll frames. The eclipse
 // (8.jpg) no longer has a hero file of its own: the hero is a wall of roll
@@ -148,4 +163,37 @@ it("borderCrop keeps a dark vignette inside a hard border (no fade walk)", async
     .png()
     .toBuffer();
   expect(await borderCrop(sharp, img)).toEqual({ left: 22, top: 22, width: 356, height: 256 });
+});
+
+it("adds a 1200 variant for the hero LCP frame only", () => {
+  expect(EXTRA_WIDTHS).toEqual({ "r4-02": [1200] });
+  expect(PHOTO_MAP.rolls.portrait[1]).toBe("24.jpg"); // r4-02
+});
+
+it("buildManifest records extra variants on that frame and leaves others without the key", () => {
+  const d = { width: 1600, height: 898 };
+  const m = buildManifest({
+    rolls: { light: [], street: [], stage: [], portrait: [d, { ...d, variants: [{ edge: 1200, width: 1200 }] }] },
+    drafts: [],
+  });
+  expect(m.rolls[3].frames[0]).not.toHaveProperty("variants");
+  expect(m.rolls[3].frames[1].variants).toEqual([{ src: "/gallery/r4-02-1200.jpg", width: 1200 }]);
+});
+
+it("writeExtraVariants writes <base>-<edge>.jpg on the long edge within the small budget", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "prep-"));
+  try {
+    const src = join(dir, "in.png");
+    await sharp({ create: { width: 2000, height: 1125, channels: 3, background: "#406080" } }).png().toFile(src);
+    const log = [];
+    expect(await writeExtraVariants(sharp, src, join(dir, "r4-02"), "r4-02", log)).toEqual([{ edge: 1200, width: 1200 }]);
+    const meta = await sharp(join(dir, "r4-02-1200.jpg")).metadata();
+    expect([meta.width, meta.height]).toEqual([1200, 675]);
+    expect(readFileSync(join(dir, "r4-02-1200.jpg")).length).toBeLessThanOrEqual(BUDGETS.small);
+    // Other frames get nothing.
+    expect(await writeExtraVariants(sharp, src, join(dir, "r4-03"), "r4-03", log)).toEqual([]);
+    expect(readdirSync(dir).sort()).toEqual(["in.png", "r4-02-1200.jpg"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

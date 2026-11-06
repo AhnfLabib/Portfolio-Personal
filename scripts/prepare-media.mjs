@@ -6,7 +6,8 @@
 // Crops any baked-in near-white film border first (see detectBorder), then
 // turns the supplied original photographs into public/gallery/*.jpg (roll
 // frames at 1600 px on the long edge, plus -800 grid variants at 800 px on the
-// long edge; the hero wall reuses these files; EXIF stripped,
+// long edge, plus any EXTRA_WIDTHS variants; the hero wall reuses these
+// files; EXIF stripped,
 // progressive mozjpeg), transcodes the draft recordings to
 // public/audio/<slug>.mp3, and writes scripts/media-manifest.json with the
 // Frame/Roll/Draft objects to paste into content.ts. Originals are not
@@ -79,6 +80,14 @@ export function slugify(name) {
 
 export const frameFile = (rollIndex, frameIndex) => `r${rollIndex + 1}-${pad2(frameIndex + 1)}`;
 
+/** Extra long-edge variants beyond 800/1600, keyed by output id. r4-02 is the
+ * hero's LCP frame: a 16:9 photo object-covered into a tall cell, so 1x
+ * desktops and DPR<2 phones need ~1200 px, between the 800 and 1600 files. */
+export const EXTRA_WIDTHS = { "r4-02": [1200] };
+
+/** "/gallery/r4-02-1200.jpg" */
+export const variantSrc = (id, edge) => `/gallery/${id}-${edge}.jpg`;
+
 function altFor(id, f) {
   const alt = ALT.rolls[id]?.[f];
   if (!alt) throw new Error(`no alt text for roll "${id}" frame ${f + 1}`);
@@ -86,7 +95,7 @@ function altFor(id, f) {
 }
 
 /**
- * entries = { rolls: {light: [{width,height}], ...},
+ * entries = { rolls: {light: [{width,height,variants?:[{edge,width}]}], ...},
  *             drafts: [{title, slug, duration}] }
  * → { rolls: Roll[], drafts: Draft[] }
  */
@@ -99,6 +108,9 @@ export function buildManifest(entries) {
       width: dim.width,
       height: dim.height,
       alt: altFor(id, f),
+      ...(dim.variants?.length
+        ? { variants: dim.variants.map((v) => ({ src: variantSrc(frameFile(r, f), v.edge), width: v.width })) }
+        : {}),
     })),
   }));
   const drafts = (entries.drafts ?? []).map((d) => ({
@@ -222,6 +234,17 @@ async function writeImage(sharp, src, out, edge, budgets, log, minEdge) {
   return { width: info.width, height: info.height };
 }
 
+/** Writes <base>-<edge>.jpg for each EXTRA_WIDTHS edge of `id` (same budget
+ * as the -800 file); returns [{edge, width}] for the manifest. */
+export async function writeExtraVariants(sharp, src, base, id, log, extra = EXTRA_WIDTHS) {
+  const out = [];
+  for (const edge of extra[id] ?? []) {
+    const { width } = await writeImage(sharp, src, `${base}-${edge}.jpg`, edge, [BUDGETS.small], log);
+    out.push({ edge, width });
+  }
+  return out;
+}
+
 function probeDuration(file) {
   const out = execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", file], {
     encoding: "utf8",
@@ -283,8 +306,10 @@ async function run(argv) {
     for (const [f, file] of files.entries()) {
       const src = join(photos, file);
       const base = join(galleryDir, frameFile(r, f));
-      rolls[id].push(await writeImage(sharp, src, `${base}.jpg`, 1600, [BUDGETS.grid, BUDGETS.gridRelaxed], log, 1280));
+      const dim = await writeImage(sharp, src, `${base}.jpg`, 1600, [BUDGETS.grid, BUDGETS.gridRelaxed], log, 1280);
       await writeImage(sharp, src, `${base}-800.jpg`, 800, [BUDGETS.small], log);
+      const variants = await writeExtraVariants(sharp, src, base, frameFile(r, f), log);
+      rolls[id].push(variants.length ? { ...dim, variants } : dim);
     }
   }
 

@@ -250,6 +250,8 @@ export interface Frame {
   width: number;
   height: number;
   alt: string;
+  /** Extra sizes prepare-media writes for this frame (EXTRA_WIDTHS), besides -800 and the full file. */
+  variants?: { src: string; width: number }[];
 }
 
 export interface Roll {
@@ -385,6 +387,7 @@ const creativeRolls: Roll[] = [
         width: 1600,
         height: 898,
         alt: "Two friends in dark coats standing in a doorway at night.",
+        variants: [{ src: "/gallery/r4-02-1200.jpg", width: 1200 }],
       },
       {
         src: "/gallery/r4-03.jpg",

@@ -689,3 +689,63 @@ do) would avoid that but send phones the 1600w file again. Left as specified; a 
 
 `npm test` 25 files, **237/237 passed**; `npx tsc -b` clean; `npm run build` succeeded (main chunk 110.09 KiB gzip,
 CreativePortfolio 5.42 KiB gzip).
+
+## v2 follow-up 2 (LCP 1200w variant)
+
+Date: 2026-11-06. Branch `artist-redesign`, on top of `15996d1`. Fixes the concern above: the hero's large frame is
+16:9 under `object-cover` in a portrait/square cell, so `sizes` by cell width made DPR 1–1.75 devices upscale the
+800w file.
+
+### Changes
+
+1. **`prepare-media`.** `EXTRA_WIDTHS = { "r4-02": [1200] }` (keyed by output id) and `writeExtraVariants` write
+   `<id>-<edge>.jpg` at that long edge with the same budget as the -800 file (`BUDGETS.small`, no new entry).
+   `buildManifest` records `variants: [{ src, width }]` on that frame only. Pipeline re-run: new
+   `public/gallery/r4-02-1200.jpg` 1200×674, 34.1 KB, q80 (35 162 bytes); manifest gained the `variants` entry; every
+   other image and audio file is byte-identical (md5 before/after). `Frame` in `content.ts` gained
+   `variants?: { src: string; width: number }[]`, and r4-02 carries it. Tests: the map, the manifest field (absent on
+   other frames), and a sharp round trip writing a 1200×675 file within budget and nothing for other ids.
+2. **`frameSrcSet`** lists -800, any variants and the full file, sorted by width. New `frameSrc.test.ts`. The rolls
+   grid uses the same helper, so r4-02's grid tile now offers 1200w too (`CreativeRolls.test.tsx` expects variants).
+3. **Slot 0 `sizes="(min-width: 1024px) 84vw, 165vw"`** (cell height × 1.78: 681 × 1.78 ≈ 1212 px at 1440;
+   358 × 1.78 ≈ 637 px for the 390-wide phone's square cell), arithmetic in the `CreativeHero.tsx` comment. Preload
+   `imagesrcset` / `imagesizes` in `index.html` match exactly; the test checks three candidates, 1200w in the middle,
+   and preload equality.
+
+### Chosen file (Playwright, `vite preview --port 4173`, persona `creative`, after network idle)
+
+| Viewport | Cell | `currentSrc` | Requests for r4-02 |
+|---|---|---|---|
+| 1440 DPR 1 | 570×681 | `r4-02.jpg` | `r4-02.jpg` |
+| 1440 DPR 2 | 570×681 | `r4-02.jpg` | `r4-02.jpg` |
+| 390 DPR 2 | 358×358 | `r4-02.jpg` | `r4-02.jpg` |
+| 390 DPR 1.5 | 358×358 | `r4-02-1200.jpg` | `r4-02-1200.jpg` |
+| 412 DPR 1.75 (Lighthouse device) | 380×380 | `r4-02-1200.jpg` | `r4-02-1200.jpg` |
+
+One request per load in every case, so preload and img agree. 1440 DPR 1 gets 1600w, not 1200w: 84vw = 1210 px is
+just over 1200 and Chromium takes the smallest candidate at or above the need. `83vw` (1195 px) would select 1200w at
+a ~1 % upscale. 390 DPR 2 needs ~1287 px → 1600w, as expected.
+
+### Lighthouse mobile ×3
+
+Same command and temporary `dist/artist.html` method as the previous follow-up (port 4173, Lighthouse 13.6.0),
+deleted afterwards and the server stopped. Raw JSON: `lcp1200/lh-{1..5}.json` in the session scratchpad.
+
+| Run | Perf | A11y | BP | FCP | LCP | TBT | CLS | SI | LCP render delay |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 82 | 100 | 100 | 0.8 s | 4884 ms | 20 ms | 0 | 1.8 s | 419 ms |
+| 2 | 82 | 100 | 100 | 0.8 s | 4884 ms | 30 ms | 0 | 1.7 s | 445 ms |
+| 3 | 82 | 100 | 100 | 0.8 s | 4892 ms | 20 ms | 0 | 1.5 s | 453 ms |
+
+Median **Performance 82**, LCP median 4884 ms. LCP file `r4-02-1200.jpg` (35 KB transferred). Two extra runs gave
+82 / 4889 ms and 82 / 4883 ms.
+
+Same-session baseline at `15996d1` (temporary worktree, port 4174, same method): 91 / 3496 ms, 91 / 3467 ms,
+81 / 5104 ms (median 91), LCP file `r4-02-800.jpg`. The observed (unthrottled) LCP is the same for both (~0.5 s);
+the simulated LCP lands in the slower mode on every run once the LCP file is 35 KB instead of 19 KB.
+
+### Concern
+
+The change trades the Lighthouse mobile score (median 91 → 82, simulated LCP ~3.5 s → ~4.9 s) for sharpness on
+DPR 1–1.75 screens. To keep 91 while fixing desktop, slot 0 could size by height at lg+ only
+(`(min-width: 1024px) 84vw, 100vw`): phones would return to 800w (still upscaled ~1.6× on a 1.75 DPR phone).
