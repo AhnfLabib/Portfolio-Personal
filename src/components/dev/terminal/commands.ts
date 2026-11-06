@@ -24,7 +24,8 @@ export type Effect =
   | { type: "shades" } // session-only
   | { type: "pet" }
   | { type: "open"; href: string }
-  | { type: "ask"; question: string };
+  | { type: "ask"; question: string }
+  | { type: "play" };
 
 export const SKINS: readonly SkinName[] = ["default", "hacker", "artist", "shades"];
 
@@ -61,6 +62,11 @@ const timeline = (entries: readonly TimelineEntry[], section: string): CommandRe
   out([...entries.map((e) => text(`${e.duration}  ${e.title} @ ${e.org}`)), jump(section)]);
 const skinList = (current: SkinName): Line[] =>
   SKINS.map((s) => text(s === current ? `* ${s}` : `  ${s}`));
+
+const play: Command = {
+  describe: "a game with the cat",
+  run: () => out([text("the cat stretches…")], [{ type: "play" }]),
+};
 
 const email = socials.find((s) => s.href.startsWith("mailto:"))!.href;
 
@@ -119,6 +125,8 @@ const REGISTRY: Record<string, Command> = {
     },
   },
   pet: { describe: "pet the cat", run: () => out([text("purrrr")], [{ type: "pet" }]) },
+  play,
+  game: play,
   clear: { describe: "clear the screen", run: () => out([], [{ type: "clear" }]) },
   ls: { describe: "list files", run: () => out([text("experience/  projects/  skills.txt  resume.pdf  cat.jpg")]) },
   sudo: {

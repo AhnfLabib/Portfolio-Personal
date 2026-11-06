@@ -19,6 +19,20 @@ describe("runCommand", () => {
     expect(r.lines).toHaveLength(COMMAND_NAMES.length);
     expect(r.ok).toBe(true);
   });
+  it("play prints the stretch line and emits a play effect", () => {
+    expect(runCommand("play", ctx)).toEqual({
+      lines: [{ kind: "text", text: "the cat stretches…" }],
+      effects: [{ type: "play" }],
+      ok: true,
+    });
+  });
+  it("game is an alias for play", () => {
+    expect(runCommand("game", ctx)).toEqual(runCommand("play", ctx));
+  });
+  it("help lists play as a game with the cat", () => {
+    const line = runCommand("help", ctx).lines.find((l) => l.text.startsWith("play"));
+    expect(line?.text.slice(4).trim()).toBe("a game with the cat");
+  });
   it("is case-insensitive and trims", () => {
     expect(runCommand("  WHOAMI ", ctx).lines[0]).toEqual(IDLE_LINES[1]);
   });

@@ -391,6 +391,21 @@ describe("useTerminal", () => {
     expect(state().petTick).toBe(1);
   });
 
+  it("play calls onPlay once and prints the stretch line without leaving the terminal", () => {
+    const onPlay = vi.fn();
+    const { state, api, run } = setup({ reduceMotion: true, storage: null, onPlay });
+    act(() => api().activate());
+    run("play");
+    expect(onPlay).toHaveBeenCalledTimes(1);
+    expect(state().lines).toEqual([
+      ...IDLE_LINES,
+      { kind: "prompt", text: "$ play" },
+      { kind: "text", text: "the cat stretches…" },
+    ]);
+    expect(state().active).toBe(true);
+    expect(state().busy).toBe(false);
+  });
+
   it("open effect opens a new tab", () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { run } = setup();
