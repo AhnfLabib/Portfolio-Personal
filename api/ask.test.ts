@@ -271,6 +271,10 @@ describe("love mode", () => {
       "Is he DATING anyone?",
       "is he married?",
       "SADIYA?",
+      "he loves her",
+      "how many girlfriends has he had",
+      "is he seeing anyone",
+      "any crushes?",
       // Documented positive: the regex stays simple; love mode only changes tone and the cat.
       "I love your projects",
     ]) {
@@ -318,7 +322,10 @@ describe("love mode", () => {
     const p = buildSystemPrompt();
     expect(p).toContain('Girlfriend: Sadiya (nickname "Prono"). Ahnaf adores her.');
     expect(p).toContain("Otherwise never bring her up unprompted.");
-    expect(LOVE_MODE_LINE).toMatch(/Fan-girl mode/);
+    expect(LOVE_MODE_LINE).toMatch(/fan-girl mode/);
+    // Conditional, so a loose match ("I love your projects") never brings her up unprompted.
+    expect(LOVE_MODE_LINE).toContain("If it isn't");
+    expect(LOVE_MODE_LINE).toContain("do not mention her");
     expect(LOVE_MODE_LINE).toMatch(/120 words/);
   });
 });

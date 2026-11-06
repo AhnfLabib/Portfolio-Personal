@@ -258,7 +258,7 @@ describe("Terminal", () => {
     }
   });
 
-  it("a normal answer does not put the cat in the love pose", async () => {
+  it("a normal answer puts the cat in the happy pose, not the love pose", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation(async () => Response.json({ answer: "He builds agents.", mode: "normal" }));
@@ -268,7 +268,7 @@ describe("Terminal", () => {
       await t.activate();
       await t.user.keyboard("ask what do you do{Enter}");
       expect(await within(t.log()).findByText("He builds agents.")).toBeInTheDocument();
-      expect(t.container.querySelector('svg[data-sprite="cat"]')).not.toHaveAttribute("data-pose", "love");
+      expect(t.container.querySelector('svg[data-sprite="cat"]')).toHaveAttribute("data-pose", "happy");
     } finally {
       fetchSpy.mockRestore();
       window.localStorage.removeItem("portfolio-ask-quota");

@@ -28,14 +28,16 @@ export function checkRate(ip: string, now: number, store: Map<string, RateEntry>
 
 export type AskMode = "love" | "normal";
 
-const LOVE_WORDS = /\b(love|girlfriend|gf|partner|crush|prono|sadiya|dating|relationship|wife|marry|married|valentine)\b/i;
+const LOVE_WORDS =
+  /\b(love[sd]?|girlfriends?|gf|partner|crush(?:es)?|prono|sadiya|dating|seeing\s+anyone|relationship|wife|marry|married|valentine)\b/i;
 
 /**
  * True when the question is about Ahnaf's love life or his girlfriend. Deliberately simple:
  * "I love your projects" matches too, which is fine — love mode only changes the tone and the cat.
  */
 export function isLoveQuestion(q: string): boolean {
-  return LOVE_WORDS.test(q) || /who\s+do\s+you\s+love/i.test(q);
+  // "who do you love" is covered by `love`.
+  return LOVE_WORDS.test(q);
 }
 
 /** The only code that knows Gemini's request/response shape. Throws on any failure. */

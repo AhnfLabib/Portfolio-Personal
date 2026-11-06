@@ -10,9 +10,12 @@ const RULES = [
   'If the question is about Ahnaf\'s love life, girlfriend, "Prono" or "Sadiya": answer like his excited best friend who is delighted to be asked — warm, playful, fan-girling, exclamation marks welcome, one or two hearts allowed, still at most 120 words, still only true facts (she is his girlfriend; he adores her; nothing else invented). Otherwise never bring her up unprompted.',
 ].join("\n");
 
-/** Extra system text sent only when the question is about Ahnaf's love life (see `isLoveQuestion`). */
+/**
+ * Extra system text sent when `isLoveQuestion` matches. The match is loose, so the line is
+ * conditional: a false positive ("I love your projects") must not bring her up unprompted.
+ */
 export const LOVE_MODE_LINE =
-  'The visitor just asked about Ahnaf\'s love life or his girlfriend Sadiya ("Prono"). Fan-girl mode: gush, but stay truthful and under 120 words.';
+  'This question may be about Ahnaf\'s love life or his girlfriend Sadiya ("Prono"). If it is, use fan-girl mode: gush, stay truthful, under 120 words. If it isn\'t, answer normally and do not mention her.';
 
 /** Lines from Ahnaf's resume that the site content does not carry. No phone number. */
 const RESUME_FACTS = [
