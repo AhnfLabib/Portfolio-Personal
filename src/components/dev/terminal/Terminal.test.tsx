@@ -416,13 +416,14 @@ describe("Terminal", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
+  // `!`: the unlayered `*` colour-transition rule in index.css otherwise beats these utilities.
   it("has a height transition that reduced motion removes", () => {
     setup();
     expect(screen.getByTestId("terminal-log")).toHaveClass(
-      "transition-[height]",
+      "transition-[height]!",
       "duration-[260ms]",
       "ease-out",
-      "motion-reduce:transition-none",
+      "motion-reduce:transition-none!",
     );
   });
 

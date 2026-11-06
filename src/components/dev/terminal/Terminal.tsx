@@ -224,7 +224,7 @@ export default function Terminal() {
             aria-live="polite"
             data-testid="terminal-log"
             onClick={state.busy ? api.finishTyping : undefined}
-            className={`${state.active ? LOG_HEIGHT_ACTIVE : LOG_HEIGHT} transition-[height] duration-[260ms] ease-out motion-reduce:transition-none space-y-3 overflow-y-auto p-4 font-mono text-xs whitespace-pre-wrap [overflow-wrap:anywhere] sm:text-sm`}
+            className={`${state.active ? LOG_HEIGHT_ACTIVE : LOG_HEIGHT} transition-[height]! duration-[260ms] ease-out motion-reduce:transition-none! space-y-3 overflow-y-auto p-4 font-mono text-xs whitespace-pre-wrap [overflow-wrap:anywhere] sm:text-sm`}
           >
             {groupLines(state.lines).map((group, gi, groups) => (
               <motion.div

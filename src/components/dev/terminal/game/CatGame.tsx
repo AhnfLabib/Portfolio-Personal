@@ -269,7 +269,7 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
         className="w-[min(480px,calc(100vw-2rem))] overflow-hidden rounded-xl border border-line bg-surface shadow-2xl shadow-black/40"
       >
         <div className="flex items-center justify-between border-b border-line bg-surface-2 py-2 pr-2 pl-4">
-          <h2 id={titleId} className="font-mono text-xs text-ink-faint">
+          <h2 id={titleId} className="font-mono text-xs text-ink-soft">
             cat dash
           </h2>
           <button
@@ -327,13 +327,13 @@ function GameDialog({ onClose, skin, shades, reduceMotion, paletteFrom, returnFo
               paused && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-surface/60 font-mono text-ink">
                   <p className="text-sm">paused</p>
-                  <p className="text-[11px] text-ink-faint">space / tap to resume</p>
+                  <p className="text-[11px] text-ink-soft">space / tap to resume</p>
                 </div>
               )
             )}
           </div>
         </div>
-        <p className="border-t border-line px-4 py-2 font-mono text-[11px] text-ink-faint">
+        <p className="border-t border-line px-4 py-2 font-mono text-[11px] text-ink-soft">
           {`space / tap to jump · esc to close · best ${pad(best)}`}
         </p>
       </div>

@@ -314,6 +314,11 @@ describe("Companions", () => {
   });
 
   it("re-measures the card on resize: a cat far along the top track is pulled in to the new corner", () => {
+    let seed = 7;
+    vi.spyOn(Math, "random").mockImplementation(() => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    });
     const t = setup();
     const x = () => Number(/translate\((-?[\d.]+)px/.exec(t.catBox().style.transform)![1]);
     for (let i = 0; i < 600 && !(x() > 120 && t.cat() !== "walk" && t.cat() !== "hop"); i++) advance(100);
