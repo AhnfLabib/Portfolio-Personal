@@ -558,3 +558,19 @@ supersedes the Global Constraints lines on companion size and idle motion.
 - [ ] **Step 3: Implement** — redraw sprites at 2× detail; wander loop with `setTimeout` per phase + CSS `transition: transform` per walk leg (`left`/`top` via `translate`), edges mapped to the card's `getBoundingClientRect`-free layout: top edge = `translate(x, 0)`, right edge = `translate(W, y) rotate(90deg)`, bottom edge = `translate(x, H) scaleY(-1)`? No — keep the cat upright: on the right edge it "hops" down in 2–3 steps (translateY) and on the bottom edge walks upright along the card's bottom border (`top: 100%`). Pause on `visibilitychange`.
 - [ ] **Step 4: Run tests, `npm run build`, browser check** — 1440 and 390: 10 s screenshots every 2 s show the cat in different positions; nothing clipped; card height and CTA top unchanged from Task 6 numbers (175 / 191 px; CTA top 715.30 / 647.69).
 - [ ] **Step 5: Commit.**
+
+---
+
+### Task 10: Companion v3 — remove Ahnaf, make the cat interactive
+
+**Spec:** the "Revision: companion v3" section at the end of the spec.
+
+**Files:**
+- Modify: `src/components/dev/terminal/sprites.ts` (delete `AHNAF` and his poses; add cat poses `look-l`, `look-r`, `look-up`, `paw`, `hop-react`), `Companion.tsx` (remove Ahnaf; add proximity tracking, bubbles, click), `wander.ts` (a `pause`/`attend` state the proximity logic can enter and leave), `layout.ts` (cat may use the full title bar now), `Terminal.tsx` (wrapper/click plumbing; the companion click must not activate the terminal), `useTerminal.ts` only if `Mood` plumbing for Ahnaf can be dropped
+- Test: update `sprites.test.ts`, `Companion.test.tsx`, `wander.test.ts`, `layout.test.ts`; add `proximity.test.ts` for the pure distance/zone helpers
+
+**Interfaces:**
+- `proximity.ts`: `export function zoneFor(cursor: {x,y}, box: {x,y,w,h}): "far" | "near" | "close"` (near < 120 px from the box edge, close < 40 px); `export function facingFor(cursor, box): -1 | 1`.
+- `Companions` props become `{ skin, shades, petTick, reduceMotion, onCatClick?: () => void }`; `mood`/`active` are no longer needed by the cat (remove from the call site).
+
+- [ ] Steps: failing tests (zone thresholds; tracking turns facing toward the cursor; bubble appears within 4–10 s of near and hides after 1.5 s; click → `!` bubble and hop, and the terminal's `activate` is NOT called; keyboard Enter on the cat button; reduced motion → no tracking) → implement → `npm test`, build → browser check at 1440/390 (cat follows the cursor in a 10 s Playwright mouse path; bubbles visible in a screenshot; card height/CTA unchanged: 175/715.30, 191/647.69) → commit.

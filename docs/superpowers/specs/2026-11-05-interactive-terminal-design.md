@@ -292,3 +292,33 @@ the size limits above.
 - **Performance:** one `requestAnimationFrame`/timer loop per companion
   set; CSS transforms only; paused when the document is hidden
   (`visibilitychange`).
+
+## Revision: companion v3 — cat only, interactive (user decision, 2026-11-06)
+
+The owner removed the pixel-Ahnaf character. Only the cat remains, and it
+becomes interactive. Supersedes the v2 section where they conflict.
+
+- **Ahnaf sprite removed** entirely (sprites, poses, skins for him, the
+  `look`/typing behaviour). Skins still apply to the cat; `sudo` still puts
+  shades on the cat; `pet` still purrs.
+- **Idle:** unchanged v2 wander (amble, sit, groom, stretch, nap, hops
+  around the card edges).
+- **Cursor nearby (within ~120 px of the cat's box):** the cat stops what
+  it is doing, turns to face the cursor, and *tracks* it with its head/eyes
+  while it stays near; if the cursor comes within ~40 px it takes one or
+  two steps toward it or bats at it (paw frame). Every so often while the
+  cursor is near (random 4–10 s) it says something in a small text bubble
+  above its head: `meow`, `mrrp`, `...`, `?`; the bubble is plain text in
+  the mono face, no sound, auto-hides after 1.5 s. When the cursor leaves
+  the zone it resumes wandering after 1–2 s.
+- **Click/tap on the cat:** the cat reacts in place (a hop + `!` bubble
+  the first time; alternating purr, a slow blink, a stretch after that);
+  the terminal is not activated by that click. This click handler is the
+  hook for a later mini-game (the owner's idea); nothing of the game is
+  built now.
+- **Touch devices:** no hover zone; tap = click reaction.
+- **Reduced motion:** static frame, no tracking, bubbles still allowed on
+  click (they are state, not animation).
+- Accessibility: the cat is decorative (`aria-hidden`); the click target
+  is a `<button aria-label="the cat">` wrapping the sprite, keyboard
+  focusable, Enter/Space = click reaction.
